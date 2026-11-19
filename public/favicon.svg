@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#0b0a10"/>
+  <g fill="#3ddbb0" stroke="#3ddbb0">
+    <circle cx="18" cy="20" r="7" stroke="none"/>
+    <rect x="11" y="29" width="15" height="21" rx="7" stroke="none"/>
+    <rect x="12" y="47" width="6" height="12" rx="3" stroke="none"/>
+    <rect x="20" y="47" width="6" height="12" rx="3" stroke="none"/>
+    <path d="M23 36 L28 32" stroke-width="6" stroke-linecap="round" fill="none"/>
+    <circle cx="29.5" cy="31.5" r="5.5" stroke="none"/>
+  </g>
+  <g transform="translate(64 0) scale(-1 1)" style="color:#ff5a5f">
+  <g fill="#ff5a5f" stroke="#ff5a5f">
+    <circle cx="18" cy="20" r="7" stroke="none"/>
+    <rect x="11" y="29" width="15" height="21" rx="7" stroke="none"/>
+    <rect x="12" y="47" width="6" height="12" rx="3" stroke="none"/>
+    <rect x="20" y="47" width="6" height="12" rx="3" stroke="none"/>
+    <path d="M23 36 L28 32" stroke-width="6" stroke-linecap="round" fill="none"/>
+    <circle cx="29.5" cy="31.5" r="5.5" stroke="none"/>
+  </g>
+  </g>
+  <polygon points="32.0,20.5 33.6,26.0 38.7,23.3 36.0,28.4 41.5,30.0 36.0,31.6 38.7,36.7 33.6,34.0 32.0,39.5 30.4,34.0 25.3,36.7 28.0,31.6 22.5,30.0 28.0,28.4 25.3,23.3 30.4,26.0" fill="#ffc857"/>
+</svg>

@@ -1,0 +1,44 @@
+{
+  "name": "fight-club",
+  "private": true,
+  "description": "A turn-based browser duel: pick a zone to strike and a zone to guard (head, body or legs). Whoever runs out of health first loses.",
+  "license": "MIT",
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@10.30.3",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint -c oxlint.config.json src tests vite.config.ts",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "check": "tsc -b && pnpm lint && vitest run",
+    "models": "node scripts/prepare-models.mjs",
+    "arenas": "node scripts/prepare-arenas.mjs",
+    "icons": "node scripts/make-icons.mjs"
+  },
+  "dependencies": {
+    "@react-three/fiber": "^9.8.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "three": "^0.187.0",
+    "zustand": "^5.1.0"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.187.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "fbx2gltf": "0.9.7-p1",
+    "oxlint": "^1.90.0",
+    "sharp": "^0.35.5",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  }
+}
