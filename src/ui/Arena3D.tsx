@@ -1,6 +1,7 @@
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Component, Suspense, type ReactNode } from 'react'
 import { Fighter3D } from './Fighter3D'
+import type { Stage } from './arenaView'
 import { ModelFighter3D } from './ModelFighter3D'
 import type { FighterView } from './arenaView'
 import { useGame } from '../state/game'
@@ -22,9 +23,9 @@ function viewFor(backdrop: boolean, stand: number): { position: [number, number,
 }
 
 /** The camera drifts slowly from side to side, always looking at the middle of the ring. */
-function CameraRig({ look }: { look: number }) {
+function CameraRig({ look, fixed }: { look: number; fixed: boolean }) {
   useFrame(({ camera, clock }) => {
-    camera.position.x = Math.sin(clock.elapsedTime * 0.25) * 0.8
+    if (!fixed) camera.position.x = Math.sin(clock.elapsedTime * 0.25) * 0.8
     camera.lookAt(0, look, 0)
   })
   return null
@@ -50,11 +51,13 @@ interface Props {
   backdrop: boolean
   /** how far down the frame the fighters are moved (a fraction of its height) */
   stand: number
+  /** a staged scene (the poster page only): the fighters are frozen in a pose and look at the camera */
+  stage?: Stage
 }
 
 /** The 3D arena (React Three Fiber). Same game, same rules: only the way it is drawn differs. */
-export default function Arena3D({ player, enemy, sceneKey, backdrop, stand }: Props) {
-  const view = viewFor(backdrop, stand)
+export default function Arena3D({ player, enemy, sceneKey, backdrop, stand, stage }: Props) {
+  const view = stage?.camera ?? viewFor(backdrop, stand)
   const over = useGame((s) => s.phase === 'over')
   return (
     <div className="canvas-wrap">
@@ -79,12 +82,12 @@ export default function Arena3D({ player, enemy, sceneKey, backdrop, stand }: Pr
           return (
             <ModelBoundary key={`${side}${sceneKey}`} fallback={primitive}>
               <Suspense fallback={null}>
-                <ModelFighter3D side={side} view={view} settled={over} />
+                <ModelFighter3D side={side} view={view} settled={over} stage={stage} />
               </Suspense>
             </ModelBoundary>
           )
         })}
-        <CameraRig look={view.look} />
+        <CameraRig look={view.look} fixed={stage !== undefined} />
       </Canvas>
     </div>
   )

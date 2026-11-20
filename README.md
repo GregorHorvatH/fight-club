@@ -1,5 +1,7 @@
 # Fight Club
 
+![Fight Club: James and Amy trade blows in a gladiator arena](docs/poster.png)
+
 A turn-based browser duel in the spirit of the old "fight club" web games. Every round both fighters secretly pick a zone to
 **strike** and a zone to **guard**: head, body or legs. Guard exactly the zone the opponent strikes and you take nothing.
 Whoever runs out of health first loses.
@@ -69,6 +71,12 @@ files, and may need a credit: check the licence of yours), so without them the g
    the game is the folder's: `arena-old-fort` is "Old fort". A 6500 px picture of several MB becomes 50-400 kB. An optional
    `arena.json` next to the picture can set `name` and `stand` (how far down the frame the fighters stand, a fraction of its
    height: `{ "stand": 0.05 }` puts them a little nearer to us and further from the back wall).
+
+## Poster scene (dev only)
+
+`pnpm dev`, then open `/poster.html?arena=sunset&t=285&yaw=55&p=head.hand&e=head.hand`: the 3D arena with the two characters frozen
+in the middle of a strike and with their faces turned to the camera, filling the window, for the cover picture and screenshots
+(parameters are listed at the top of `src/poster.tsx`). It is not part of the game's build.
 
 ## Run
 

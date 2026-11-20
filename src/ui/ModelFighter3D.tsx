@@ -4,7 +4,7 @@ import { Color, MeshStandardMaterial, Vector3, type MeshBasicMaterial, type Obje
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { IMPACT } from '../timing'
-import { poseInput, type FighterView } from './arenaView'
+import { poseInput, type FighterView, type Stage } from './arenaView'
 import {
   ANKLE, BASE_X, FORE, HEAD_R, HEAD_UP, HIP_Y, HIP_Z, NECK_UP, SHIN, SHOULDER_UP, SHOULDER_Z, THIGH, UPPER, WAIST,
   aimPoint, computePose,
@@ -112,6 +112,8 @@ interface Props {
   side: 'player' | 'enemy'
   view: FighterView
   settled: boolean
+  /** frozen in a staged pose, heads turned to the camera (the poster); the game itself does not use it */
+  stage?: Stage
 }
 
 /**
@@ -119,7 +121,7 @@ interface Props {
  * skeleton exactly as for the primitive fighter; every frame the character's bones are then turned and placed to follow the
  * driver's joints (rig.ts), so every strike still lands on the zone that was chosen.
  */
-export function ModelFighter3D({ side, view, settled }: Props) {
+export function ModelFighter3D({ side, view, settled, stage }: Props) {
   const dir = side === 'player' ? 1 : -1
   const near = dir
   const phase = side === 'player' ? 0 : 2.1
@@ -141,11 +143,11 @@ export function ModelFighter3D({ side, view, settled }: Props) {
   }, [view])
 
   useFrame((state, dt) => {
-    time.current += Math.min(dt, 0.05)
-    const t = time.current
+    if (!stage) time.current += Math.min(dt, 0.05)
+    const t = stage ? stage.t : time.current
     const J = joints.current
     const { rig, fx, k } = model
-    const P = computePose(t, poseInput(view), state.clock.elapsedTime, phase)
+    const P = computePose(t, poseInput(view), stage ? 0 : state.clock.elapsedTime, phase)
     applyPose(J, P, dir, near)
     J.ring!.position.y = 0.02 - P.y
     J.root!.updateMatrixWorld(true)
@@ -196,9 +198,11 @@ export function ModelFighter3D({ side, view, settled }: Props) {
     const chestLat = driven.LeftArm!.clone().sub(driven.RightArm!).normalize()
     orient.Hips = { lat: hipLat }
     for (const n of ['Spine', 'Spine1', 'Spine2']) orient[n] = { lat: chestLat }
-    orient.Neck = { dir: headDir, lat: chestLat } // the neck and the head stand upright, whatever way the rest pose bows them
+    // staged: the face is turned toward the camera (the camera is on the figure's +z side for the left fighter, -z for the right one)
+    const toward = (amount: number): Vector3 => chestLat.clone().applyAxisAngle(headDir, -(stage?.headYaw ?? 0) * amount * near)
+    orient.Neck = { dir: headDir, lat: toward(0.4) } // the neck and the head stand upright, whatever way the rest pose bows them
     orient.Head = {
-      dir: headDir, lat: chestLat, rest: model.head.up,
+      dir: headDir, lat: toward(1), rest: model.head.up,
       scale: model.head.scale,
       anchor: { point: headC, local: model.head.centre.clone().multiplyScalar(model.head.scale) }, // the skull's centre is where the driver's head is
     }

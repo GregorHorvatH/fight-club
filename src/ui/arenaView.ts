@@ -67,6 +67,17 @@ export function useFighterView(side: Side): FighterView {
   }
 }
 
+/**
+ * A staged scene (for the poster and the screenshots): the fighters are frozen at `t` seconds into a round instead of running,
+ * and their heads are turned toward the camera by `headYaw` radians, so that both faces can be seen in a shot from the side.
+ */
+export interface Stage {
+  t: number
+  headYaw: number
+  /** a camera of its own, instead of the usual one */
+  camera?: { position: [number, number, number]; look: number }
+}
+
 /** What the pose function needs to know about a fighter's round. */
 export const poseInput = (v: FighterView): PoseInput => ({
   strike: v.strike,
