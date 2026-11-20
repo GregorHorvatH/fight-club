@@ -1,5 +1,6 @@
 import type { Zone } from '../sim'
 import type { FighterView } from './arenaView'
+import { STANDARD, type Build } from './pose'
 
 /**
  * Three invisible boxes that stack from the floor up, in a standing pose, in the units of pose.ts: what a pointer can hit in the 3D
@@ -7,28 +8,32 @@ import type { FighterView } from './arenaView'
  * moves would cost far more than it is worth, and a box is what a thumb hits anyway.)
  *
  * The body is everything from the hips up to the chin: the shoulders, the arms and the chest are all the body. The head is only what
- * is above the chin, and the legs are what is below the hips. The boxes are in the units of a figure of height 1 (see `scale`).
+ * is above the chin, and the legs are what is below the hips. The boxes stand where the zones of the fighter's `build` are.
  */
-const EDGES = { hips: 1.7, chin: 2.88, top: 3.95 }
-const BOXES: Record<Zone, { from: number; to: number; w: number }> = {
-  legs: { from: 0, to: EDGES.hips, w: 1.1 },
-  body: { from: EDGES.hips, to: EDGES.chin, w: 1.5 },
-  head: { from: EDGES.chin, to: EDGES.top, w: 1.0 },
+function boxes(b: Build): Record<Zone, { from: number; to: number; w: number }> {
+  const hips = b.hipY + b.ankle
+  const chin = hips + b.waist + b.neckUp + 0.08
+  const top = hips + b.waist + b.neckUp + b.headUp + b.headR + 0.3
+  return {
+    legs: { from: 0, to: hips, w: 1.1 },
+    body: { from: hips, to: chin, w: 1.5 },
+    head: { from: chin, to: top, w: 1.0 },
+  }
 }
 
 /** Place it inside the fighter's root group. It renders nothing when the fighter cannot be picked (no `pick` in the view). */
-/** `scale` is how much taller than the standard figure the character is made. */
-export function ZoneHits({ view, scale = 1, show = false }: { view: FighterView; scale?: number; show?: boolean }) {
+export function ZoneHits({ view, build = STANDARD, show = false }: { view: FighterView; build?: Build; show?: boolean }) {
   if (!view.pick) return null
+  const BOXES = boxes(build)
   return (
     <group>
       {(Object.keys(BOXES) as Zone[]).map((zone) => {
         const b = BOXES[zone]
-        const h = (b.to - b.from) * scale
+        const h = b.to - b.from
         return (
           <mesh
             key={zone}
-            position={[0, ((b.from + b.to) / 2) * scale, 0]}
+            position={[0, (b.from + b.to) / 2, 0]}
             onClick={(e) => {
               e.stopPropagation()
               view.pick?.(zone)

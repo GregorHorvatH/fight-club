@@ -2,11 +2,11 @@
 //
 //   pnpm dev                                   (in one terminal)
 //   for each fighter <id> (see src/state/roster.ts), save a screenshot of
-//     http://localhost:5173/poster.html?arena=night&t=0&lag=0&yaw=90&cam=-1.8,3.25,3.6,3.15&left=<id>&right=james
+//     http://localhost:5173/poster.html?arena=night&t=0&lag=0&yaw=0&front=1&cam=-1.8,3.0,4.2,3.0&left=<id>&right=james
 //   in a square window (600 x 600 CSS pixels at a device pixel ratio of 2, so 1200 x 1200), as <folder>/<id>.png
 //   pnpm portraits <folder>
 //
-// The camera stands right in front of the left fighter and the head is turned toward it, so the face looks at the player. The boxes
+// The camera stands right in front of the left fighter, which is turned (body and head) to face it, so the avatar looks at the player. The boxes
 // below say where the face is on each shot, in a 300 x 300 grid (the shot is scaled to it): the middle of the head, and how big a
 // square to cut. A new character needs a box (look at its shot); without one the default is used.
 // Licence: the faces are renders of the Mixamo characters, so like the models they are git-ignored (public/models/ is); without
@@ -16,23 +16,23 @@ import { join, resolve } from 'node:path'
 import sharp from 'sharp'
 
 const SIZE = 192
-const DEFAULT = { cy: 175, size: 140 }
+const DEFAULT = { cy: 130, size: 140 }
 const BOXES = {
-  james: { cy: 150, size: 150 },
-  amy: { cy: 160, size: 172 },
-  pete: { cy: 168, size: 130 },
-  brute: { cy: 178, size: 150 },
-  lola: { cy: 172, size: 150 },
-  kachujin: { cy: 175, size: 140 },
-  swat: { cy: 170, size: 140 },
-  akai: { cy: 180, size: 140 },
-  astra: { cy: 190, size: 140 },
-  maynard: { cy: 205, size: 150 },
-  paladin: { cy: 207, size: 150 },
-  dreyar: { cy: 187, size: 140 },
-  alien_soldier: { cy: 185, size: 140 },
-  exo_red: { cy: 172, size: 140 },
-  vanguard: { cy: 187, size: 150 },
+  james: { cy: 114, size: 140 },
+  amy: { cy: 160, size: 160 },
+  pete: { cy: 138, size: 130 },
+  brute: { cy: 112, size: 150 },
+  lola: { cy: 145, size: 130 },
+  kachujin: { cy: 140, size: 140 },
+  swat: { cy: 128, size: 140 },
+  akai: { cy: 135, size: 140 },
+  astra: { cy: 150, size: 130 },
+  maynard: { cy: 130, size: 150 },
+  paladin: { cy: 114, size: 150 },
+  dreyar: { cy: 122, size: 140 },
+  alien_soldier: { cy: 114, size: 150 },
+  exo_red: { cy: 118, size: 140 },
+  vanguard: { cy: 113, size: 160 },
 }
 
 const folder = process.argv[2]

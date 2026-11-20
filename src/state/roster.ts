@@ -11,42 +11,42 @@ export interface Fighter {
   model: string
   /** the face on the tile of the selection screen (made by scripts/make-portraits.mjs; a letter stands in when it is missing) */
   portrait: string
-  /** how tall the character is, relative to the driver skeleton (1 = as tall as the primitive fighter) */
+  /** how tall the character stands, relative to the standard figure (1 = as tall); its proportions are measured from its model */
   height: number
   starter: boolean
   /** parts of the model that are left out: the names (or the beginnings of the names) of its meshes, e.g. a weapon in its hand */
   hide?: readonly string[]
-  /** how much its head may be enlarged to meet the fists (the aimed-at head is bigger than most real ones): 1 = not at all */
-  headScale?: number
+  /** the shoulders (the collar bones, and the armour or the clothes that hang from them) sit this much higher than the model's own, in figure units: for a high collar that would otherwise leave the neck bare */
+  shoulders?: number
 }
 
 /** Nothing can be unlocked yet (the tournament that unlocks fighters is not made), so everybody can be chosen. Turn off when it is made. */
 const ALL_UNLOCKED = true
 
-const fighter = <I extends string>(id: I, name: string, height = 1, starter = false, extra: { hide?: readonly string[]; headScale?: number } = {}) => ({
-  id, name, model: `models/${id}.glb`, portrait: `models/${id}.webp`, height, starter, hide: extra.hide ?? [], headScale: extra.headScale ?? 1.25,
+const fighter = <I extends string>(id: I, name: string, height = 1, starter = false, extra: { hide?: readonly string[]; shoulders?: number } = {}) => ({
+  id, name, model: `models/${id}.glb`, portrait: `models/${id}.webp`, height, starter, hide: extra.hide ?? [], shoulders: extra.shoulders ?? 0,
 })
 
 /**
  * In the order of the tiles, and of the tournament: after the two starters the fighters get tougher (and cooler). `height`: how
- * tall the character looks next to the driver skeleton (1 = as tall as the primitive fighter), to be tuned by eye.
+ * tall the character stands next to the standard figure (1 = as tall), to be tuned by eye; its proportions are its own (measured).
  */
 export const FIGHTERS = [
   fighter('james', 'James', 1.07, true),
-  fighter('amy', 'Amy', 1, true),
+  fighter('amy', 'Amy', 0.95, true),
   fighter('pete', 'Pete'),
-  fighter('brute', 'Brute', 1, false, { hide: ['BattleAxe'] }), // it comes with an axe in its hand: it fights with its fists
-  fighter('lola', 'Lola'),
+  fighter('brute', 'Brute', 1.08, false, { hide: ['BattleAxe'] }), // it comes with an axe in its hand: it fights with its fists
+  fighter('lola', 'Lola', 0.98),
   fighter('kachujin', 'Kachujin'),
-  fighter('swat', 'Swat'),
+  fighter('swat', 'Swat', 1.03),
   fighter('akai', 'Akai'),
-  fighter('astra', 'Astra'),
-  fighter('maynard', 'Maynard'),
-  fighter('paladin', 'Paladin'),
-  fighter('dreyar', 'Dreyar'),
-  fighter('alien_soldier', 'Alien Soldier'),
-  fighter('exo_red', 'Exo Red', 1, false, { headScale: 1 }), // its head is in proportion already
-  fighter('vanguard', 'Vanguard'),
+  fighter('astra', 'Astra', 0.98),
+  fighter('maynard', 'Maynard', 1.05),
+  fighter('paladin', 'Paladin', 1.06),
+  fighter('dreyar', 'Dreyar', 1.04),
+  fighter('alien_soldier', 'Alien Soldier', 1.06),
+  fighter('exo_red', 'Exo Red', 1.04, false, { shoulders: 0.3 }), // a high collar of armour hugs its neck
+  fighter('vanguard', 'Vanguard', 1.1),
 ] as const satisfies readonly Fighter[]
 
 type Roster = (typeof FIGHTERS)[number]

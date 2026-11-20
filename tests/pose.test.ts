@@ -10,8 +10,12 @@ import {
   computePose,
   headGap,
   lungeFor,
+  planFor,
+  STANDARD,
+  heightOf,
   strikeTip,
   track,
+  type Build,
   type LegPose,
   type Pose,
   type PoseInput,
@@ -287,5 +291,110 @@ describe('reactions', () => {
     const w = at(IMPACT + 2, { won: true })
     expect(w.armN.s).toBeGreaterThan(2.4)
     expect(w.armF.s).toBeGreaterThan(2.4)
+  })
+})
+
+/** A build with its parts made `by` times as long as the standard one (and its legs, arms or trunk by their own factors). */
+const scaled = (id: string, by: { legs?: number; arms?: number; trunk?: number; all?: number }): Build => {
+  const a = by.all ?? 1
+  const l = (by.legs ?? 1) * a
+  const r = (by.arms ?? 1) * a
+  const t = (by.trunk ?? 1) * a
+  const b = STANDARD
+  return {
+    id, hipY: b.hipY * l, thigh: b.thigh * l * 1.1, shin: b.shin * l * 0.9, foot: b.foot * a, ankle: b.ankle * a, upper: b.upper * r * 0.95, fore: b.fore * r * 1.05, fist: b.fist * r,
+    waist: b.waist * t, shoulderUp: b.shoulderUp * t, neckUp: b.neckUp * t, headUp: b.headUp * a, headR: b.headR * a, bodyDepth: b.bodyDepth * t, chestC: b.chestC * t,
+    shoulderZ: b.shoulderZ * a, hipZ: b.hipZ * a,
+  }
+}
+const SMALL = scaled('small', { all: 0.9 })
+const TALL = scaled('tall', { all: 1.1 })
+// the two ends of what a leap or a crouch is for
+const TINY = scaled('tiny', { all: 0.85 })
+const GIANT = scaled('giant', { all: 1.15 })
+const BIG = scaled('big', { all: 1.3 })
+const LITTLE = scaled('little', { all: 0.75 })
+const LONG_ARMS = scaled('long-arms', { arms: 1.25 })
+const SHORT_LEGS = scaled('short-legs', { legs: 0.8, trunk: 1.1 })
+const BUILDS = [STANDARD, SMALL, TALL, LONG_ARMS, SHORT_LEGS]
+
+describe('bodies of their own build', () => {
+  const pose = (t: number, me: Build, foe: Build, over: Partial<PoseInput> = {}): Pose => computePose(t, { ...input(over), build: me, foeBuild: foe })
+
+  it('the standard build is as tall as the figure always was', () => {
+    expect(heightOf(STANDARD)).toBeCloseTo(3.64, 2)
+  })
+
+  it('every strike reaches the zone it is aimed at, whoever strikes whom', () => {
+    for (const me of BUILDS) {
+      for (const foe of BUILDS) {
+        for (const st of ALL) {
+          const tip = strikeTip(pose(IMPACT, me, foe, { strike: st }), st.weapon, me)
+          const aim = aimPoint(st, me, foe)
+          expect(Math.hypot(tip[0] - aim[0], tip[1] - aim[1]), `${me.id} -> ${foe.id} ${name(st)}`).toBeLessThan(0.2)
+        }
+      }
+    }
+  })
+
+  it('the feet stand on the floor and flat, however long the thigh is next to the shin', () => {
+    for (const bd of BUILDS) {
+      const p = pose(0, bd, STANDARD)
+      for (const leg of [p.legN, p.legF]) expect(Math.abs(leg.h + leg.k + leg.a), bd.id).toBeLessThan(1e-9)
+      expect(lift(p, bd), bd.id).toBeCloseTo(0, 6)
+    }
+  })
+
+  it('a taller opponent is further to reach for a head, and a taller striker has less to cross', () => {
+    const hand = { zone: 'head', weapon: 'hand' } as const
+    expect(lungeFor(hand, TALL, STANDARD)).toBeLessThan(lungeFor(hand, SMALL, STANDARD))
+    expect(lungeFor(hand, STANDARD, TALL)).toBeGreaterThan(lungeFor(hand, STANDARD, SMALL))
+  })
+
+  it('the striker never ends up with his head inside the other one, whatever the builds', () => {
+    for (const me of BUILDS) for (const foe of BUILDS) for (const st of ALL) expect(headGap(st, undefined, me, foe), `${me.id} -> ${foe.id} ${name(st)}`).toBeGreaterThan(0.04)
+  })
+})
+
+/** How far the feet that carry the body are off the floor (0 when it stands). */
+const lift = (p: Pose, bd: Build): number => {
+  const ankleY = (l: LegPose): number => bd.hipY + p.y - (bd.thigh * Math.cos(l.h) + bd.shin * Math.cos(l.h + l.k))
+  return Math.min(ankleY(p.legN), ankleY(p.legF)) - bd.ankle
+}
+
+describe('leaps', () => {
+  const pose = (t: number, me: Build, foe: Build, st: Strike): Pose => computePose(t, { ...input({ strike: st }), build: me, foeBuild: foe })
+  const hand = { zone: 'head', weapon: 'hand' } as const
+
+  it('a long lunge is a leap: the feet are off the floor on the way in, and the fighter lands with the blow', () => {
+    const long = ALL.filter((st) => lungeFor(st, STANDARD, STANDARD) > 2)
+    expect(long.length).toBeGreaterThan(0)
+    for (const st of long) {
+      let top = 0
+      for (let t = 0.1; t < IMPACT; t += 0.01) top = Math.max(top, lift(pose(t, STANDARD, STANDARD, st), STANDARD))
+      expect(top, name(st)).toBeGreaterThan(0.12)
+      expect(Math.abs(lift(pose(IMPACT, STANDARD, STANDARD, st), STANDARD)), name(st)).toBeLessThan(0.02)
+    }
+  })
+
+  it('a short lunge is a step: both feet stay on the floor', () => {
+    const short = ALL.filter((st) => lungeFor(st, STANDARD, STANDARD) < 2)
+    expect(short.length).toBeGreaterThan(0)
+    for (const st of short) for (let t = 0; t < 1.2; t += 0.02) expect(lift(pose(t, STANDARD, STANDARD, st), STANDARD), `${name(st)} @${t.toFixed(2)}`).toBeLessThan(0.1)
+  })
+
+  it('a head that is too high to reach is reached by jumping up to it: still in the air at the blow', () => {
+    expect(planFor(hand, TINY, GIANT).air).toBeGreaterThan(0.1)
+    expect(lift(pose(IMPACT, TINY, GIANT, hand), TINY)).toBeGreaterThan(0.1)
+    // ... and a head that is within reach is not
+    expect(planFor(hand, STANDARD, STANDARD).air).toBe(0)
+  })
+
+  it('a leg that is too low for the fist is reached by crouching deeper (never by jumping)', () => {
+    const low = { zone: 'legs', weapon: 'hand' } as const
+    const all = [LITTLE, TINY, SMALL, STANDARD, TALL, GIANT, BIG]
+    const needing = all.flatMap((me) => all.map((foe) => planFor(low, me, foe))).filter((p) => p.crouch > 0)
+    expect(needing.length).toBeGreaterThan(0)
+    for (const p of needing) expect(p.air).toBe(0)
   })
 })

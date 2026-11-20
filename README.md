@@ -51,12 +51,19 @@ Every sound is synthesised with Web Audio (no files).
 
 ## Characters (3D, optional)
 
-The 3D view can use real characters from [Mixamo](https://www.mixamo.com): **James** and **Amy**, chosen on the Select fighter screen. The pose is
-still computed by `computePose` and applied to an invisible driver skeleton; the character's 65 bones are turned and placed to
-follow it every frame (`src/ui/rig.ts`: a direction and a position for each bone, the shortest arc from the T-pose, a lateral axis
-where the twist matters, closed fists). The limbs are fitted to the proportions of the driver skeleton, so a strike aimed at a
-zone still arrives at it; the head is enlarged a little to meet the fists. The hit flash and the glow of a zone are done in the
-character's own material (every vertex knows which zone its bone belongs to), so the glow follows the shape of the body.
+The 3D view can use real characters from [Mixamo](https://www.mixamo.com) (the fighters of `src/state/roster.ts`, chosen on the Select
+fighter screen). The pose is still computed by `computePose` and applied to an invisible driver skeleton; the character's 65 bones
+are turned and placed to follow it every frame (`src/ui/rig.ts`: a direction and a position for each bone, the shortest arc from the
+T-pose, a lateral axis where the twist matters, closed fists).
+
+**Every character keeps its own proportions.** The driver skeleton is made to the measure of the character (`Build` in `pose.ts`: the
+lengths of the thigh, the shin, the arm, the trunk, the neck, the size of the head, measured from the rest pose of the model in
+`buildModel`), so nothing is stretched. The choreography is worked out for the striker's build and the opponent's: where the zones
+of the opponent are, how far the striker has to close in, and how it gets there (`planFor`): a long way in is a leap (both feet leave
+the floor on the way and land with the blow); a head that is too high to reach is reached by jumping up to it (still in the air at
+the blow), a leg that is too low by crouching deeper. The primitive fighters (2D and 3D) are the standard build. The hit flash and the
+glow of a zone are done in the character's own material (every vertex knows which zone its bone belongs to), so the glow follows the
+shape of the body.
 
 Mixamo's licence allows its characters inside a game but not as files in a public repository, so the models are **not** in git
 (`assets-src/` and `public/models/` are ignored). Without them the 3D view draws the primitive fighters and everything works.

@@ -7,6 +7,7 @@
  *   lag=0.28       seconds between the contact and the moment shown (the flash of the blow fades)
  *   yaw=30         how far the heads are turned toward the camera, in degrees
  *   left=pete      who stands on the left, and  right=brute  on the right (ids from state/roster.ts; default: james and amy)
+ *   front=1        the whole body faces the camera, not only the head (for the avatars; use with a camera right in front of the fighter)
  *   yawR=95        the same for the right fighter, when it needs another one (default: the same as yaw)
  *   p=head.hand    the strike of the left fighter (zone.weapon); the right fighter takes it
  *   cam=0,3.2,11.2,2.18   a camera of its own: x,y,z of the position, then the height it looks at
@@ -53,6 +54,7 @@ const cam = q.get('cam')?.split(',').map(Number)
 const stage: Stage = {
   t: Number(q.get('t') ?? 285) / 1000,
   headYaw: (Number(q.get('yaw') ?? 30) * Math.PI) / 180,
+  front: q.get('front') === '1',
   headYawRight: q.has('yawR') ? (Number(q.get('yawR')) * Math.PI) / 180 : undefined,
   camera: cam && cam.length === 4 && cam.every(Number.isFinite) ? { position: [cam[0]!, cam[1]!, cam[2]!], look: cam[3]! } : undefined,
 }
