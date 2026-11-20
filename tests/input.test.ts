@@ -950,7 +950,7 @@ describe('going back to the main menu from a fight', () => {
 
 
 describe('the options: the language', () => {
-  const LANGUAGES = ['en', 'de', 'fr', 'es', 'uk', 'pt', 'pl', 'it']
+  const LANGUAGES = ['en', 'de', 'fr', 'es', 'uk', 'pt', 'pl', 'it', 'hu']
   beforeEach(() => {
     useSettings.getState().setLanguage('en')
     useGame.getState().toMenu()

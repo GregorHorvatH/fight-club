@@ -128,7 +128,7 @@ pnpm build      # static site in dist/
 
 ## Languages
 
-The interface is translated into **English, German, French, Spanish, Ukrainian, Portuguese (Brazilian), Polish and Italian** (Options in the main menu; the language of the browser
+The interface is translated into **English, German, French, Spanish, Ukrainian, Portuguese (Brazilian), Polish, Italian and Hungarian** (Options in the main menu; the language of the browser
 is used the first time when the game has it, and the choice is remembered). It uses [i18next](https://www.i18next.com) with
 react-i18next: the texts are in `src/i18n/<lang>.ts`, `en.ts` is the source of the keys (interpolation `{{name}}`, plurals with `_one` /
 `_few` / `_many` / `_other` keys, `<b>` for bold). `tests/i18n.test.ts` checks that every language has every key, with the same

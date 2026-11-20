@@ -4,6 +4,7 @@ import { en } from '../src/i18n/en'
 import { es } from '../src/i18n/es'
 import { fr } from '../src/i18n/fr'
 import { DEFAULT_LANG, LANGUAGES, detectLang, i18next, isLang, setLanguage } from '../src/i18n'
+import { hu } from '../src/i18n/hu'
 import { it as itTexts } from '../src/i18n/it'
 import { pl } from '../src/i18n/pl'
 import { pt } from '../src/i18n/pt'
@@ -25,12 +26,12 @@ const params = (s: string): string[] => [...new Set([...s.matchAll(/{{(\w+)}}/g)
 /** The tags of a text (<b>, <kbd>). */
 const tags = (s: string): string[] => [...s.matchAll(/<\/?(\w+)>/g)].map((m) => m[0]).sort()
 
-const LANGS = { de, fr, es, uk, pt, pl, it: itTexts } as const
+const LANGS = { de, fr, es, uk, pt, pl, it: itTexts, hu } as const
 const base = flat(en as unknown as Tree)
 
 describe('translations', () => {
-  it('the languages: english, german, french, spanish, ukrainian, portuguese, polish, italian', () => {
-    expect(LANGUAGES.map((l) => l.id)).toEqual(['en', 'de', 'fr', 'es', 'uk', 'pt', 'pl', 'it'])
+  it('the languages: english, german, french, spanish, ukrainian, portuguese, polish, italian, hungarian', () => {
+    expect(LANGUAGES.map((l) => l.id)).toEqual(['en', 'de', 'fr', 'es', 'uk', 'pt', 'pl', 'it', 'hu'])
     expect(DEFAULT_LANG).toBe('en')
   })
 
@@ -92,6 +93,10 @@ describe('i18next', () => {
     expect(i18next.t('record.fastest', { count: 5 })).toContain('5 rund')
     setLanguage('pt')
     expect(i18next.t('menu.arcade.label')).toBe('Modo Arcade')
+    setLanguage('hu')
+    expect(i18next.t('menu.arcade.label')).toBe('Arcade mód')
+    expect(i18next.t('caption.punch', { name: 'Pete', zone: i18next.t('zoneTo.head') })).toBe('Pete ököllel üt ✊ a fejre')
+    expect(i18next.t('end.textWon', { count: 5, hp: 3 })).toContain('5 kör alatt')
     setLanguage('it')
     expect(i18next.t('caption.punch', { name: 'Pete', zone: i18next.t('zoneTo.head') })).toBe('Pete sferra un pugno ✊ alla testa')
     setLanguage('en')
@@ -104,6 +109,7 @@ describe('i18next', () => {
     expect(detectLang(['pt-BR'])).toBe('pt')
     expect(detectLang(['pl-PL'])).toBe('pl')
     expect(detectLang(['it-IT'])).toBe('it')
+    expect(detectLang(['hu-HU'])).toBe('hu')
     expect(detectLang(['ru-RU', 'ja'])).toBe('en') // (russian is left out on purpose)
     expect(detectLang([])).toBe('en')
     expect(isLang('es')).toBe(true)

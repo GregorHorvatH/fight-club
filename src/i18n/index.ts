@@ -4,6 +4,7 @@ import { de } from './de'
 import { en, type Translation } from './en'
 import { es } from './es'
 import { fr } from './fr'
+import { hu } from './hu'
 import { it } from './it'
 import { pl } from './pl'
 import { pt } from './pt'
@@ -19,6 +20,7 @@ export const LANGUAGES = [
   { id: 'pt', name: 'Português' },
   { id: 'pl', name: 'Polski' },
   { id: 'it', name: 'Italiano' },
+  { id: 'hu', name: 'Magyar' },
 ] as const
 export type Lang = (typeof LANGUAGES)[number]['id']
 export const DEFAULT_LANG: Lang = 'en'
@@ -41,7 +43,7 @@ declare module 'i18next' {
 }
 
 void i18next.use(initReactI18next).init({
-  resources: { en: { translation: en }, de: { translation: de }, fr: { translation: fr }, es: { translation: es }, uk: { translation: uk }, pt: { translation: pt }, pl: { translation: pl }, it: { translation: it } },
+  resources: { en: { translation: en }, de: { translation: de }, fr: { translation: fr }, es: { translation: es }, uk: { translation: uk }, pt: { translation: pt }, pl: { translation: pl }, it: { translation: it }, hu: { translation: hu } },
   lng: DEFAULT_LANG,
   fallbackLng: DEFAULT_LANG,
   interpolation: { escapeValue: false }, // React escapes
