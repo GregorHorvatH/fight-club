@@ -695,10 +695,13 @@ export function computePose(t: number, input: PoseInput, clock = 0, phase = 0): 
     armF = blendArm(armF, { s: 2.2 + 0.5 * swing, e: 0.35 - 0.1 * swing }, w)
   }
 
-  let legN = kick ?? planted(STANCE.n * (1 - together) + b.step, b.alpha, bd)
+  // a winner who has just thrown a kick has the leg of that kick (back in its stance by now): it joins the other for the jumps
+  const own = planted(STANCE.n * (1 - together) + b.step, b.alpha, bd)
+  let legN = kick ? (together > 0 ? blendLeg(kick, own, together) : kick) : own
   const legF = planted(STANCE.f * (1 - together) - 0.8 * b.step, b.alpha, bd)
   if (lift && !kick) legN = blendLeg(legN, { h: 0.95, k: -1.7, a: 0.2 }, lift.w)
-  const standing = (kick ? ext(legF, bd) : Math.max(ext(legN, bd), ext(legF, bd))) - bd.hipY + bd.ankle
+  const kicking = kick !== null && together < 0.5
+  const standing = (kicking ? ext(legF, bd) : Math.max(ext(legN, bd), ext(legF, bd))) - bd.hipY + bd.ankle
   const y = lerp(standing, 0.32, fall) + hop + air
 
   return { x: b.x, y, lean: b.lean, twist: b.twist, pelvis: b.pelvis, head: b.head, armN, armF, legN, legF, fall, flash }

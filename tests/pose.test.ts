@@ -398,3 +398,16 @@ describe('leaps', () => {
     for (const p of needing) expect(p.air).toBe(0)
   })
 })
+
+describe('the winner jumps on both legs', () => {
+  it('whatever it did in the last round (a punch, a kick, a super strike), both legs are the same in the jumps', () => {
+    const strikes: Strike[] = [...ALL, { zone: 'head', weapon: 'super', zone2: 'legs' }]
+    for (const st of strikes) {
+      for (const clock of [10, 10.1, 10.25, 10.4, 10.55]) {
+        const p = computePose(10 + (clock - 10), { ...input({ strike: st, won: true, endAt: 0.3 }), strikeAt: 0 }, clock, 0)
+        expect(p.legN.h, `${name(st)} @${clock}`).toBeCloseTo(p.legF.h, 6)
+        expect(p.legN.k, `${name(st)} @${clock}`).toBeCloseTo(p.legF.k, 6)
+      }
+    }
+  })
+})

@@ -1,4 +1,4 @@
-import { AI_MEMORY, AI_SUPER_CHANCE, HARD_CONFIDENCE, HARD_KICK_THRESHOLD, KICK_SAFE_HP } from './config'
+import { AI_MEMORY, AI_SUPER_CHANCE, EASY_MISREAD, HARD_CONFIDENCE, HARD_KICK_THRESHOLD, KICK_SAFE_HP } from './config'
 import type { Rng } from './rng'
 import { ZONES, type Difficulty, type Move, type Weapon, type Zone } from './types'
 
@@ -43,7 +43,8 @@ function weaponFor(difficulty: Difficulty, pHit: number, rng: Rng): Weapon {
 
 /**
  * The enemy's move. It only ever looks at the player's PAST moves (never at the current one).
- *  - easy:   pure guesswork
+ *  - easy:   mostly wrong on purpose: it tends to guard where the player rarely strikes and to strike where the player tends to guard
+ *            (otherwise it guesses); the weapon is a coin toss
  *  - normal: matches the player's habits (guards where the player tends to strike, strikes where the player tends not to guard)
  *  - hard:   same, but nearly always takes the most likely zone
  * The smarter AIs also choose between a punch and a kick: they kick when they expect the zone to be unguarded, unless they are nearly
@@ -62,8 +63,16 @@ export function chooseMove(history: readonly Move[], difficulty: Difficulty, rng
 }
 
 function pick(history: readonly Move[], difficulty: Difficulty, rng: Rng, hp: number): Move {
-  if (difficulty === 'easy' || history.length === 0) {
+  if (history.length === 0) {
     return { attack: sample(uniform(), rng), weapon: rng() < 0.5 ? 'hand' : 'foot', block: sample(uniform(), rng) }
+  }
+  if (difficulty === 'easy') {
+    const strikes = habits(history, 'attack')
+    const guards = habits(history, 'block')
+    const rarely: Probs = { head: 1 - strikes.head, body: 1 - strikes.body, legs: 1 - strikes.legs } // where the player rarely strikes
+    const block = sample(rng() < EASY_MISREAD ? rarely : uniform(), rng)
+    const attack = sample(rng() < EASY_MISREAD ? guards : uniform(), rng)
+    return { attack, weapon: rng() < 0.5 ? 'hand' : 'foot', block }
   }
   const likelyStrike = habits(history, 'attack')
   const likelyGuard = habits(history, 'block')

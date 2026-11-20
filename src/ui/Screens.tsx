@@ -11,7 +11,7 @@ import { DIFFICULTIES, type Difficulty, type Side } from '../sim'
 import { useNames } from './names'
 
 const BLURB: Record<Difficulty, string> = {
-  easy: 'The enemy guesses blindly.',
+  easy: 'The enemy is usually wrong: it guards where you do not strike.',
   normal: 'The enemy learns your habits.',
   hard: 'The enemy punishes your habits.',
 }

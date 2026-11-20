@@ -29,12 +29,13 @@ describe('habits', () => {
 describe('chooseMove', () => {
   const stubborn = repeat({ attack: 'head', weapon: 'hand', block: 'legs' }, 10) // always strikes the head, always guards the legs
 
-  it('easy is blind guesswork, about a third each', () => {
-    for (const z of ['head', 'body', 'legs'] as const) {
-      const s = share('easy', stubborn, (m) => m.block, z)
-      expect(s).toBeGreaterThan(0.28)
-      expect(s).toBeLessThan(0.39)
-    }
+  it('easy is mostly wrong: it guards where the player does not strike and strikes where the player guards', () => {
+    // the player always strikes the head and always guards the legs
+    expect(share('easy', stubborn, (m) => m.block, 'head')).toBeLessThan(0.25) // it rarely guards the head
+    expect(share('easy', stubborn, (m) => m.attack, 'legs')).toBeGreaterThan(0.45) // it often strikes the legs (guarded)
+    // yet it does not do it every time: the other zones are used too
+    expect(share('easy', stubborn, (m) => m.block, 'body')).toBeGreaterThan(0.25)
+    expect(share('easy', stubborn, (m) => m.attack, 'head')).toBeGreaterThan(0.1)
   })
 
   it('normal leans toward a stubborn player, hard punishes them', () => {

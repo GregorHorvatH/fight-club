@@ -25,7 +25,7 @@ Whoever runs out of health first loses.
   enemy throws one now and then when its own meter is full (not when it is nearly out of health).
 - **Combo:** every strike you land in a row makes the next one hit +2 harder (up to +8). A guarded strike resets it.
 - **Critical hits:** 15% of the strikes that are not guarded do double damage.
-- **The enemy learns.** *Easy* guesses blindly. *Normal* studies your habits (newer rounds count more) and guards where you
+- **The enemy learns.** *Easy* is mostly wrong on purpose: it tends to guard a zone you rarely strike and to strike a zone you tend to guard (60% of the time, otherwise it guesses). *Normal* studies your habits (newer rounds count more) and guards where you
   tend to strike and strikes where you tend not to guard. *Hard* does the same but almost always takes the likeliest zone.
   The smarter enemies also pick the weapon: they kick when they expect the zone to be open. It only ever looks at your past
   rounds, never at the move you are choosing now.

@@ -41,3 +41,9 @@ export const SUPER_GUARD = 25 // you guard the zone that is struck
 export const SUPER_HURT = 10
 /** Enemy AI: how often it throws a super strike when it can (easy, normal, hard). */
 export const AI_SUPER_CHANCE = { easy: 0.15, normal: 0.3, hard: 0.5 } as const
+
+/**
+ * Enemy AI, easy: how often it misreads the player on purpose. It guards a zone the player has rarely struck, and strikes a zone the
+ * player has often guarded (the opposite of what a smart enemy does), otherwise it guesses. So an easy enemy is mostly wrong.
+ */
+export const EASY_MISREAD = 0.6
