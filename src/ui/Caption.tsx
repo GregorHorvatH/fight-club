@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import type { Initiative, RoundResult, Side, Weapon } from '../sim'
 import { useGame } from '../state/game'
 import { BEAT, timelineOf } from '../timing'
-import { NAMES } from './names'
+import { useNames } from './names'
 
 const ICON: Record<Weapon, string> = { hand: '✊', foot: '🦶' }
 const VERB: Record<Weapon, string> = { hand: 'punches', foot: 'kicks' }
@@ -22,8 +22,8 @@ export function Captions() {
   const last = useGame((s) => s.last)
   const phase = useGame((s) => s.phase)
   const replay = useGame((s) => s.replay)
+  const names = useNames()
   if (phase !== 'reveal' || !last) return null
-  const names = NAMES.solo
   const tl = timelineOf(last)
   return (
     <div className="captions" aria-live="polite" key={`${last.round}-${replay}`}>

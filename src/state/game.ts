@@ -3,18 +3,23 @@ import { play, type Sound } from '../audio/synth'
 import { timelineOf } from '../timing'
 import { createMatch, playRound, resolveRound, type Match, type Move, type Rng, type RoundResult, type Side, type Weapon, type Zone } from '../sim'
 import { useBest } from './best'
+import { isUnlocked, rivalOf, slotFighter, SLOTS, FIGHTERS, type FighterId } from './roster'
 import { useSettings, type Mode } from './settings'
 
-/** menu -> (about | setup -> choose -> reveal -> (choose -> reveal)* -> over) and back to the menu */
-export type Phase = 'menu' | 'about' | 'setup' | 'choose' | 'reveal' | 'over'
+/** menu -> (about | setup -> select -> choose -> reveal -> (choose -> reveal)* -> over) and back to the menu */
+export type Phase = 'menu' | 'about' | 'setup' | 'select' | 'choose' | 'reveal' | 'over'
 
 /** The items of the pause window, top to bottom. Reset leaves the fight for the main menu. */
 export const PAUSE_ITEMS = ['continue', 'reset'] as const
 export type PauseItem = (typeof PAUSE_ITEMS)[number]
 
 /** The items under the settings of the setup screen, top to bottom. */
-export const SETUP_ITEMS = ['start', 'back'] as const
+export const SETUP_ITEMS = ['select', 'back'] as const
 export type SetupItem = (typeof SETUP_ITEMS)[number]
+
+/** The items of the end screen, top to bottom: another fight, or the main menu. */
+export const END_ITEMS = ['again', 'back'] as const
+export type EndItem = (typeof END_ITEMS)[number]
 
 /** What one player has picked so far for the coming round. */
 export interface Choice {
@@ -68,8 +73,31 @@ interface Game {
   setupItem: SetupItem
   moveSetup: (step: number) => void
   pointSetup: (item: SetupItem) => void
-  /** choose the item under the cursor (or `item`): start the fight, or go back to the menu */
+  /** choose the item under the cursor (or `item`): go on to the choice of the fighter, or back to the menu */
   chooseSetup: (item?: SetupItem) => void
+  /** who is who: the characters of the left fighter and the right one */
+  fighters: Record<Side, FighterId>
+  /** the selection screen: the tile the cursor is on (the tiles, then Back), and who is choosing (alone always the left one) */
+  selectCursor: number
+  selectFor: Side
+  /** how many tiles there are in a row (the screen tells: it depends on the shape of the window) */
+  selectColumns: number
+  setSelectColumns: (n: number) => void
+  /** from the setup to the choice of the fighter */
+  openSelect: () => void
+  /** move the cursor over the tiles (and Back below them); it wraps around */
+  moveSelect: (dx: number, dy: number) => void
+  pointSelect: (slot: number) => void
+  /** choose the tile under the cursor (or `slot`). Alone it starts the fight; between two people the second choice does. */
+  chooseSelect: (slot?: number) => void
+  /** one step back: to the first player's choice, or to the setup */
+  backSelect: () => void
+  /** the item of the end screen the cursor is on */
+  endItem: EndItem
+  moveEnd: (step: number) => void
+  pointEnd: (item: EndItem) => void
+  /** choose the item under the cursor (or `item`): fight again, or back to the main menu */
+  chooseEnd: (item?: EndItem) => void
   /** from the menu to the description of the game */
   openAbout: () => void
   start: () => void
@@ -192,10 +220,71 @@ export const useGame = create<Game>((set, get) => {
 
     openSetup: (mode) => {
       useSettings.getState().setMode(mode)
-      set({ phase: 'setup', mode, setupItem: 'start', paused: false, last: null, choice: fresh() })
+      set({ phase: 'setup', mode, setupItem: 'select', paused: false, last: null, choice: fresh() })
     },
 
-    setupItem: 'start',
+    fighters: { player: FIGHTERS[0].id, enemy: FIGHTERS[1].id },
+    selectCursor: 0,
+    selectFor: 'player',
+    selectColumns: 4,
+    setSelectColumns: (n) => {
+      if (get().selectColumns !== n) set({ selectColumns: n })
+    },
+
+    openSelect: () => {
+      if (get().phase !== 'setup') return
+      set({ phase: 'select', selectFor: 'player', selectCursor: FIGHTERS.findIndex((f) => f.id === get().fighters.player) })
+    },
+
+    moveSelect: (dx, dy) => {
+      if (get().phase !== 'select') return
+      const back = SLOTS
+      const c = get().selectCursor
+      const columns = get().selectColumns
+      const rows = SLOTS / columns
+      let next: number
+      if (c === back) next = dy < 0 ? SLOTS - columns : dy > 0 ? 0 : back
+      else {
+        const col = (((c % columns) + dx) % columns + columns) % columns
+        const row = Math.floor(c / columns) + dy
+        next = row < 0 || row >= rows ? back : row * columns + col
+      }
+      play('select')
+      set({ selectCursor: next })
+    },
+
+    pointSelect: (slot) => {
+      if (get().phase === 'select' && get().selectCursor !== slot) set({ selectCursor: slot })
+    },
+
+    chooseSelect: (slot = get().selectCursor) => {
+      const { phase, mode, selectFor, fighters } = get()
+      if (phase !== 'select') return
+      if (slot === SLOTS) return get().backSelect()
+      const f = slotFighter(slot)
+      // a "?" cannot be chosen, nor a fighter that is locked, nor (the second player) the one the first has chosen
+      if (!f || !isUnlocked(f) || (selectFor === 'enemy' && f.id === fighters.player)) return
+      play('select')
+      if (mode === 'solo') {
+        set({ fighters: { player: f.id, enemy: rivalOf(f.id, random) } })
+        get().start()
+      } else if (selectFor === 'player') {
+        const free = FIGHTERS.findIndex((o) => o.id !== f.id && isUnlocked(o))
+        set({ fighters: { ...fighters, player: f.id }, selectFor: 'enemy', selectCursor: free })
+      } else {
+        set({ fighters: { ...fighters, enemy: f.id } })
+        get().start()
+      }
+    },
+
+    backSelect: () => {
+      const { phase, mode, selectFor, fighters } = get()
+      if (phase !== 'select') return
+      if (mode === 'duo' && selectFor === 'enemy') set({ selectFor: 'player', selectCursor: FIGHTERS.findIndex((f) => f.id === fighters.player) })
+      else set({ phase: 'setup' })
+    },
+
+    setupItem: 'select',
 
     moveSetup: (step) => {
       if (get().phase !== 'setup') return
@@ -210,7 +299,26 @@ export const useGame = create<Game>((set, get) => {
 
     chooseSetup: (item = get().setupItem) => {
       if (get().phase !== 'setup') return
-      if (item === 'start') get().start()
+      if (item === 'select') get().openSelect()
+      else get().toMenu()
+    },
+
+    endItem: 'again',
+
+    moveEnd: (step) => {
+      if (get().phase !== 'over') return
+      const i = END_ITEMS.indexOf(get().endItem)
+      play('select')
+      set({ endItem: END_ITEMS[(i + step + END_ITEMS.length) % END_ITEMS.length]! })
+    },
+
+    pointEnd: (item) => {
+      if (get().phase === 'over' && get().endItem !== item) set({ endItem: item })
+    },
+
+    chooseEnd: (item = get().endItem) => {
+      if (get().phase !== 'over') return
+      if (item === 'again') get().start()
       else get().toMenu()
     },
 
@@ -277,7 +385,7 @@ export const useGame = create<Game>((set, get) => {
       }
       if (mode === 'solo') useBest.getState().record(match) // a duel between two people is not your record
       play(mode === 'duo' || match.status === 'won' ? 'win' : 'lose')
-      set({ phase: 'over' })
+      set({ phase: 'over', endItem: 'again' })
     },
   }
 })

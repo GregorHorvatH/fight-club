@@ -1,12 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { arenaUrl, NO_ARENA, pickArena, useArenas } from '../state/arenas'
-import { PAUSE_ITEMS, SETUP_ITEMS, useGame, type PauseItem } from '../state/game'
+import { END_ITEMS, PAUSE_ITEMS, SETUP_ITEMS, useGame, type PauseItem } from '../state/game'
 import { MENU, MENU_INFO, useMenu } from '../state/menu'
+import { usePortrait } from './usePortrait'
+import { columnsFor, isUnlocked, slotFighter, SLOTS } from '../state/roster'
 import { useBest } from '../state/best'
 import { useSettings } from '../state/settings'
 import { buttonKey, zoneKey } from '../input'
 import { DIFFICULTIES, type Difficulty, type Side } from '../sim'
-import { NAMES } from './names'
+import { useNames } from './names'
 
 const BLURB: Record<Difficulty, string> = {
   easy: 'The enemy guesses blindly.',
@@ -157,12 +159,12 @@ export function About() {
 
       <h2>Controls</h2>
       <p>
-        Tap <b>James</b> to guard a zone and <b>Amy</b> to strike one (between two people: yourself to guard, the other fighter to strike), choose ✊ or 🦶, then
+        Tap <b>your fighter</b> (on the left) to guard a zone and <b>the enemy</b> (on the right) to strike one (between two people: yourself to guard, the other fighter to strike), choose ✊ or 🦶, then
         press ▶. On a keyboard the nine keys are laid out like the screen. In VS Mode the second player uses the right-hand keys, after the first has locked in.
       </p>
       <div className="keymap" aria-label="Keys">
-        <KeyGrid side="player" label="James" />
-        <KeyGrid side="enemy" label="Amy (VS Mode)" />
+        <KeyGrid side="player" label="Player 1" />
+        <KeyGrid side="enemy" label="Player 2 (VS Mode)" />
       </div>
       <p className="keys">
         <kbd>Enter</kbd> / <kbd>Space</kbd> confirm · <kbd>V</kbd> 2D / 3D · <kbd>M</kbd> mute · <kbd>Esc</kbd> back
@@ -174,6 +176,77 @@ export function About() {
           </button>
         </li>
       </ul>
+    </div>
+  )
+}
+
+/** One tile of the selection screen: a fighter's face (or a "?" for one that is not there yet, or not unlocked). */
+function Tile({ slot, tag }: { slot: number; tag: '1P' | '2P' | null }) {
+  const { selectCursor, selectFor, fighters, pointSelect, chooseSelect } = useGame()
+  const f = slotFighter(slot)
+  const open = f !== null && isUnlocked(f)
+  const taken = open && selectFor === 'enemy' && fighters.player === f.id
+  const [broken, setBroken] = useState(false) // no portrait made: the first letter stands in
+  return (
+    <button
+      role="option"
+      aria-selected={selectCursor === slot}
+      aria-label={open ? f.name : 'Locked'}
+      aria-disabled={!open || taken}
+      className={`tile${selectCursor === slot ? ' on' : ''}${open ? '' : ' locked'}${taken ? ' taken' : ''}`}
+      onMouseEnter={() => pointSelect(slot)}
+      onFocus={() => pointSelect(slot)}
+      onClick={() => chooseSelect(slot)}
+    >
+      {open ? (
+        broken ? (
+          <b className="letter">{f.name[0]}</b>
+        ) : (
+          <img src={`${import.meta.env.BASE_URL}${f.portrait}`} alt="" draggable={false} onError={() => setBroken(true)} />
+        )
+      ) : (
+        <b className="qm">?</b>
+      )}
+      {tag && <em className={`tag ${tag === '1P' ? 'player' : 'enemy'}`}>{tag}</em>}
+    </button>
+  )
+}
+
+/** Choosing the fighter, like in an old fighting game: a grid of faces, the ones not unlocked yet are "?". */
+export function Select() {
+  const { mode, selectCursor, selectFor, fighters, pointSelect, chooseSelect, setSelectColumns } = useGame()
+  const columns = columnsFor(usePortrait())
+  useEffect(() => setSelectColumns(columns), [columns, setSelectColumns]) // the keys move over the tiles as they are laid out
+  const f = slotFighter(selectCursor)
+  const who = mode === 'solo' ? 'Choose your fighter' : selectFor === 'player' ? 'Player 1: choose your fighter' : 'Player 2: choose your fighter'
+  return (
+    <div className="screen select" role="dialog" aria-label="Select fighter">
+      <h1>Select fighter</h1>
+      <p className={`blurb who ${mode === 'duo' ? (selectFor === 'player' ? 'player' : 'enemy') : ''}`}>{who}</p>
+      <div className="roster" role="listbox" aria-label="Fighters" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
+        {Array.from({ length: SLOTS }, (_, slot) => {
+          const o = slotFighter(slot)
+          const tag = mode === 'duo' && selectFor === 'enemy' && o?.id === fighters.player ? '1P' : null
+          return <Tile key={slot} slot={slot} tag={tag} />
+        })}
+      </div>
+      <p className="pick-name">{f && isUnlocked(f) ? f.name : '???'}</p>
+      <ul role="menu" className="items">
+        <li role="none">
+          <button
+            role="menuitem"
+            className={`item${selectCursor === SLOTS ? ' on' : ''}`}
+            onMouseEnter={() => pointSelect(SLOTS)}
+            onFocus={() => pointSelect(SLOTS)}
+            onClick={() => chooseSelect(SLOTS)}
+          >
+            Back
+          </button>
+        </li>
+      </ul>
+      <p className="keys">
+        <kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> choose · <kbd>Enter</kbd> confirm · <kbd>Esc</kbd> back
+      </p>
     </div>
   )
 }
@@ -198,7 +271,7 @@ export function Setup() {
         </>
       ) : (
         <p className="blurb">
-          Two people, one screen, one after the other: James picks and locks in (his picks disappear at once), then Amy picks and fights.
+          Two people, one screen, one after the other: the left fighter picks and locks in (the picks disappear at once), then the right one picks and fights.
           Look away while the other one chooses.
         </p>
       )}
@@ -223,7 +296,7 @@ export function Setup() {
               onFocus={() => pointSetup(item)}
               onClick={() => chooseSetup(item)}
             >
-              {item === 'start' ? 'Start' : 'Back'}
+              {item === 'select' ? 'Select fighter' : 'Back'}
             </button>
           </li>
         ))}
@@ -270,9 +343,9 @@ export function Pause() {
 }
 
 export function End() {
-  const { match, mode, start, toMenu } = useGame()
+  const { match, mode, endItem, pointEnd, chooseEnd } = useGame()
   const fresh = useBest((s) => s.fresh)
-  const n = NAMES[mode]
+  const n = useNames()
   const duo = mode === 'duo'
   const title = duo ? `${match.status === 'won' ? n.player : n.enemy} wins` : match.status === 'won' ? 'Victory' : 'Defeat'
   const winnerHp = match.status === 'won' ? match.hp.player : match.hp.enemy
@@ -287,12 +360,24 @@ export function End() {
       <h1>{title}</h1>
       <p>{text}</p>
       {!duo && fresh && <p className="newbest">New personal best!</p>}
-      <button className="go big" onClick={start} autoFocus>
-        {duo ? 'Rematch' : 'Fight again'} <kbd>Enter</kbd>
-      </button>
-      <button className="link" onClick={toMenu}>
-        Back to the menu <kbd>Esc</kbd>
-      </button>
+      <ul role="menu" className="items">
+        {END_ITEMS.map((item) => (
+          <li key={item} role="none">
+            <button
+              role="menuitem"
+              className={`item${endItem === item ? ' on' : ''}`}
+              onMouseEnter={() => pointEnd(item)}
+              onFocus={() => pointEnd(item)}
+              onClick={() => chooseEnd(item)}
+            >
+              {item === 'again' ? (duo ? 'Rematch' : 'Fight again') : 'Back to the menu'}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="keys">
+        <kbd>↑</kbd> <kbd>↓</kbd> choose · <kbd>Enter</kbd> confirm · <kbd>Esc</kbd> menu
+      </p>
       {!duo && <Record />}
     </div>
   )

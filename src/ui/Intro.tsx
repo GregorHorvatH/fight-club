@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { play } from '../audio/synth'
 import { useGame } from '../state/game'
-import { NAMES } from './names'
+import { useNames } from './names'
 
 /** How long the intro lasts (the CSS animations in index.css add up to this), and when the bell rings: at "FIGHT!". */
 export const INTRO_MS = 2300
@@ -14,6 +14,7 @@ const BELL_AT_MS = 1150
  */
 export function Intro() {
   const matchId = useGame((s) => s.matchId)
+  const names = useNames()
   const [done, setDone] = useState(0) // the last match whose intro has played
   useEffect(() => {
     if (matchId === 0) return
@@ -27,9 +28,9 @@ export function Intro() {
   if (matchId === 0 || done === matchId) return null
   return (
     <div className="intro" key={matchId} aria-hidden="true">
-      <span className="nm player">{NAMES.solo.player}</span>
+      <span className="nm player">{names.player}</span>
       <span className="vs">VS</span>
-      <span className="nm enemy">{NAMES.solo.enemy}</span>
+      <span className="nm enemy">{names.enemy}</span>
       <span className="fight">FIGHT!</span>
     </div>
   )

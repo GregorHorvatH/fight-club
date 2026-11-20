@@ -1,13 +1,15 @@
 import type { Side } from '../sim'
 import { useGame } from '../state/game'
+import { fighterOf } from '../state/roster'
 
-/** The fighters have the names of their characters (the models are James and Amy). */
-export const NAMES = {
-  solo: { player: 'James', enemy: 'Amy' },
-  duo: { player: 'James', enemy: 'Amy' },
-} as const
-
-/** What to call a fighter. */
+/** What to call a fighter: the name of its character. */
 export function useName(side: Side): string {
-  return useGame((s) => NAMES[s.mode][side])
+  return useGame((s) => fighterOf(s.fighters[side]).name)
+}
+
+/** What to call both. */
+export function useNames(): Record<Side, string> {
+  const player = useName('player')
+  const enemy = useName('enemy')
+  return { player, enemy }
 }

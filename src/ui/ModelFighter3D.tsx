@@ -3,6 +3,8 @@ import { useMemo, useRef, type ReactNode } from 'react'
 import { Color, MeshStandardMaterial, Vector3, type MeshBasicMaterial, type Object3D, type SkinnedMesh } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { useGame } from '../state/game'
+import { fighterOf } from '../state/roster'
 import { poseInput, type FighterView, type Stage } from './arenaView'
 import {
   ANKLE, BASE_X, FORE, HEAD_R, HEAD_UP, HIP_Y, HIP_Z, NECK_UP, SHIN, SHOULDER_UP, SHOULDER_Z, THIGH, UPPER, WAIST,
@@ -13,11 +15,8 @@ import { applyPose, type JointName, type Limb, type Reg } from './rigPose'
 import { ZoneHits } from './ZoneHits'
 import { addZoneAttribute, applyZoneFx, createHalo, createZoneFx, setZone, skinnedMeshes, tidyMaterial, writeStencil, type ZoneFx } from './zoneFx'
 
-/** The characters: the left fighter and the right one (optimised Mixamo models, see scripts/prepare-models.mjs). */
-const MODEL_URL = { player: 'models/james.glb', enemy: 'models/amy.glb' } as const
+/** The characters are the ones chosen (optimised Mixamo models, see scripts/prepare-models.mjs and state/roster.ts). */
 const TEAM = { player: '#2bb893', enemy: '#d9474c' } as const
-/** How tall each character is, relative to the driver skeleton (1 = as tall as the primitive fighter): James is a little taller. */
-const HEIGHT = { player: 1.07, enemy: 1 } as const
 
 const AIM_COLOR = '#ffc857'
 const SHIELD_COLOR = '#58b8ff'
@@ -125,7 +124,9 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
   const dir = side === 'player' ? 1 : -1
   const near = dir
   const phase = side === 'player' ? 0 : 2.1
-  const gltf = useLoader(GLTFLoader, `${import.meta.env.BASE_URL}${MODEL_URL[side]}`)
+  const character = fighterOf(useGame((s) => s.fighters[side]))
+  const height = character.height // how tall it is, relative to the driver skeleton (1 = as tall as the primitive fighter)
+  const gltf = useLoader(GLTFLoader, `${import.meta.env.BASE_URL}${character.model}`)
   const model = useMemo(() => buildModel(gltf.scene, TEAM[side]), [gltf, side])
   const time = useRef(settled ? 10 : 0)
   const joints = useRef<Partial<Record<JointName, Object3D>>>({})
@@ -199,7 +200,7 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
     orient.Hips = { lat: hipLat }
     for (const n of ['Spine', 'Spine1', 'Spine2']) orient[n] = { lat: chestLat }
     // staged: the face is turned toward the camera (the camera is on the figure's +z side for the left fighter, -z for the right one)
-    const toward = (amount: number): Vector3 => chestLat.clone().applyAxisAngle(headDir, -(stage?.headYaw ?? 0) * amount * near)
+    const toward = (amount: number): Vector3 => chestLat.clone().applyAxisAngle(headDir, -((side === 'enemy' ? stage?.headYawRight : undefined) ?? stage?.headYaw ?? 0) * amount * near)
     orient.Neck = { dir: headDir, lat: toward(0.4) } // the neck and the head stand upright, whatever way the rest pose bows them
     orient.Head = {
       dir: headDir, lat: toward(1), rest: model.head.up,
@@ -234,7 +235,7 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
 
   return (
     <group ref={reg('root')} position={[-dir * BASE_X, 0, 0]}>
-      <ZoneHits view={view} scale={HEIGHT[side]} />
+      <ZoneHits view={view} scale={height} />
       <group ref={reg('facing')} rotation-y={side === 'enemy' ? Math.PI : 0}>
         {/* the invisible driver skeleton: empty groups, the pose is applied to them */}
         <group ref={reg('tilt')}>
@@ -252,7 +253,7 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
         </group>
 
         {/* the character: turned to face +x (it is modelled facing +z), scaled to the figure, lifted so its feet are on the floor */}
-        <group rotation-y={Math.PI / 2} scale={model.k * HEIGHT[side]} position={[0, model.lift * HEIGHT[side], 0]}>
+        <group rotation-y={Math.PI / 2} scale={model.k * height} position={[0, model.lift * height, 0]}>
           <primitive object={model.root} />
         </group>
 

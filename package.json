@@ -16,7 +16,8 @@
     "check": "tsc -b && pnpm lint && vitest run",
     "models": "node scripts/prepare-models.mjs",
     "arenas": "node scripts/prepare-arenas.mjs",
-    "icons": "node scripts/make-icons.mjs"
+    "icons": "node scripts/make-icons.mjs",
+    "portraits": "node scripts/make-portraits.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "^9.8.2",

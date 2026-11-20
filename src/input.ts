@@ -10,7 +10,7 @@
  *
  * Between two people they choose one after the other (the left fighter first): only the keys of the one whose turn it is do anything.
  * Enter and Space confirm for whoever is choosing. In the main menu: up / down (or W / S) move the cursor, Enter chooses. On the setup
- * screen: 1 2 3 = difficulty (arcade), up / down + Enter = Start or Back, B = the next arena, Esc = back to the menu (also from the about and the end screens).
+ * screen: 1 2 3 = difficulty (arcade), up / down + Enter = Select fighter or Back (the end screen: fight again or back), on the selection screen the arrows (or W A S D) move over the tiles and Enter chooses, B = the next arena, Esc = back to the menu (also from the about and the end screens).
  * In a fight Esc pauses (then up / down and Enter choose: Continue, or Reset = the main menu; Esc continues). Anywhere: V = 2D / 3D, M = mute. Auto-repeat is ignored.
  */
 import { turnOf, useGame } from './state/game'
@@ -96,6 +96,15 @@ export function handleKey(code: string): boolean {
       m.choose()
       return true
     }
+    case 'select':
+      if (code === 'Escape') return g.backSelect(), true
+      if (code === 'ArrowLeft' || code === 'KeyA') return g.moveSelect(-1, 0), true
+      if (code === 'ArrowRight' || code === 'KeyD') return g.moveSelect(1, 0), true
+      if (code === 'ArrowUp' || code === 'KeyW') return g.moveSelect(0, -1), true
+      if (code === 'ArrowDown' || code === 'KeyS') return g.moveSelect(0, 1), true
+      if (!go) return false
+      g.chooseSelect()
+      return true
     case 'about':
       if (code !== 'Escape' && !go) return false
       return g.toMenu(), true
@@ -110,8 +119,10 @@ export function handleKey(code: string): boolean {
         g.chooseSetup() // Start, or Back, whichever the cursor is on
         return true
       }
+      if (code === 'ArrowUp' || code === 'KeyW') return g.moveEnd(-1), true
+      if (code === 'ArrowDown' || code === 'KeyS') return g.moveEnd(1), true
       if (!go) return false
-      g.start() // the end screen: play again
+      g.chooseEnd() // the end screen: fight again, or the menu, whichever the cursor is on
       return true
     case 'reveal':
       if (!go) return false

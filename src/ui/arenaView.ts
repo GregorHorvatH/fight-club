@@ -102,6 +102,8 @@ export function useFighterView(side: Side): FighterView {
 export interface Stage {
   t: number
   headYaw: number
+  /** the right fighter's own turn of the head, when it needs another one (it looks at the camera from the other side) */
+  headYawRight?: number
   /** a camera of its own, instead of the usual one */
   camera?: { position: [number, number, number]; look: number }
 }

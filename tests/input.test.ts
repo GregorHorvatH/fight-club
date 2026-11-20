@@ -6,6 +6,7 @@ const { BUTTONS, KEYS, buttonCode, buttonKey, handleKey, zoneCode, zoneKey } = a
 const { useGame } = await import('../src/state/game')
 const { useSettings } = await import('../src/state/settings')
 const { MENU, useMenu } = await import('../src/state/menu')
+const roster = await import('../src/state/roster')
 const { ZONES } = await import('../src/sim')
 const { IDLE_MS, STEP_TEXT, idleHint, stepOf } = await import('../src/ui/steps')
 
@@ -294,25 +295,27 @@ describe('the main menu', () => {
     expect(useMenu.getState().soon).toBeNull()
   })
 
-  it('on the setup screen up / down move between Start and Back, and Enter chooses: the cursor starts on Start', () => {
+  it('on the setup screen up / down move between Select fighter and Back, and Enter chooses: the cursor starts on Select fighter', () => {
     handleKey('Enter') // arcade
-    expect(useGame.getState().setupItem).toBe('start')
+    expect(useGame.getState().setupItem).toBe('select')
     handleKey('ArrowDown')
     expect(useGame.getState().setupItem).toBe('back')
     handleKey('ArrowDown') // wraps around
-    expect(useGame.getState().setupItem).toBe('start')
+    expect(useGame.getState().setupItem).toBe('select')
     handleKey('ArrowUp')
     handleKey('Enter')
     expect(useGame.getState().phase).toBe('menu')
-    handleKey('Enter') // the setup again: the cursor is back on Start
-    expect(useGame.getState().setupItem).toBe('start')
+    handleKey('Enter') // the setup again: the cursor is back on Select fighter
+    expect(useGame.getState().setupItem).toBe('select')
     handleKey('Enter')
-    expect(useGame.getState().phase).toBe('choose')
+    expect(useGame.getState().phase).toBe('select')
   })
 
-  it('from the setup Enter starts the fight, and the end screen goes back to the menu with Esc', () => {
+  it('from the setup Enter goes on to choosing the fighter, and the end screen goes back to the menu with Esc', () => {
     handleKey('Enter')
     handleKey('Enter')
+    expect(useGame.getState().phase).toBe('select')
+    useGame.getState().start()
     expect(useGame.getState().phase).toBe('choose')
     useGame.setState({ phase: 'over' })
     handleKey('Escape')
@@ -390,5 +393,146 @@ describe('the pause', () => {
     expect(useGame.getState().paused).toBe(false)
     useGame.getState().pause()
     expect(useGame.getState().paused).toBe(false)
+  })
+})
+
+describe('the end screen', () => {
+  beforeEach(() => {
+    useSettings.setState({ mode: 'solo' })
+    useGame.getState().start()
+    useGame.setState({ phase: 'over', endItem: 'again' })
+  })
+
+  it('is a list: up / down move the cursor (it starts on fighting again), Enter chooses', () => {
+    expect(useGame.getState().endItem).toBe('again')
+    handleKey('ArrowDown')
+    expect(useGame.getState().endItem).toBe('back')
+    handleKey('ArrowDown') // wraps around
+    expect(useGame.getState().endItem).toBe('again')
+    handleKey('ArrowUp')
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('menu')
+  })
+
+  it('Enter on the first item starts a new match', () => {
+    const id = useGame.getState().matchId
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('choose')
+    expect(useGame.getState().matchId).toBe(id + 1)
+  })
+})
+
+describe('choosing the fighter', () => {
+  const { FIGHTERS, SLOTS, columnsFor, slotFighter, isUnlocked, rivalOf } = roster
+  const open = (mode: 'solo' | 'duo') => {
+    useSettings.setState({ mode })
+    useGame.getState().toMenu()
+    useGame.getState().openSetup(mode)
+    useGame.setState({ fighters: { player: 'james', enemy: 'amy' } })
+    useGame.getState().setSelectColumns(4)
+    handleKey('Enter') // Select fighter
+  }
+
+  it('the tiles are the fighters, then "?" for the ones that do not exist yet; the starters can be chosen', () => {
+    expect(SLOTS).toBe(12)
+    expect(FIGHTERS.every((f) => f.starter)).toBe(true)
+    expect(slotFighter(0)?.id).toBe('james')
+    expect(slotFighter(FIGHTERS.length)).toBeNull()
+    expect(isUnlocked(FIGHTERS[0])).toBe(true)
+  })
+
+  it('4 across in a wide window (3 rows), 3 across in a tall one (4 rows)', () => {
+    expect(columnsFor(false)).toBe(4)
+    expect(columnsFor(true)).toBe(3)
+  })
+
+  it('the cursor starts on the current fighter; the arrows move over the tiles and wrap; down from the last row is Back', () => {
+    open('solo')
+    expect(useGame.getState().phase).toBe('select')
+    expect(useGame.getState().selectCursor).toBe(0)
+    handleKey('ArrowRight')
+    expect(useGame.getState().selectCursor).toBe(1)
+    handleKey('ArrowLeft')
+    handleKey('ArrowLeft') // wraps to the end of the row
+    expect(useGame.getState().selectCursor).toBe(3)
+    handleKey('ArrowDown')
+    expect(useGame.getState().selectCursor).toBe(7)
+    handleKey('ArrowDown')
+    expect(useGame.getState().selectCursor).toBe(11)
+    handleKey('ArrowDown')
+    expect(useGame.getState().selectCursor).toBe(SLOTS) // Back
+    handleKey('ArrowUp')
+    expect(useGame.getState().selectCursor).toBe(SLOTS - 4)
+  })
+
+  it('with 3 across the rows are shorter and there are 4 of them', () => {
+    open('solo')
+    useGame.getState().setSelectColumns(3)
+    handleKey('ArrowDown')
+    expect(useGame.getState().selectCursor).toBe(3)
+    handleKey('ArrowRight')
+    handleKey('ArrowRight')
+    handleKey('ArrowRight') // wraps within the row
+    expect(useGame.getState().selectCursor).toBe(3)
+  })
+
+  it('alone: the chosen fighter is yours, the enemy is another one, and the fight starts', () => {
+    open('solo')
+    handleKey('ArrowRight')
+    handleKey('Enter') // Amy
+    const g = useGame.getState()
+    expect(g.phase).toBe('choose')
+    expect(g.fighters.player).toBe('amy')
+    expect(g.fighters.enemy).toBe('james')
+  })
+
+  it('a "?" cannot be chosen', () => {
+    open('solo')
+    useGame.getState().pointSelect(5)
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('select')
+  })
+
+  it('Back (or Esc) returns to the setup', () => {
+    open('solo')
+    handleKey('Escape')
+    expect(useGame.getState().phase).toBe('setup')
+    handleKey('Enter')
+    handleKey('ArrowUp') // from the first tile up: Back
+    expect(useGame.getState().selectCursor).toBe(SLOTS)
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('setup')
+  })
+
+  it('two players choose one after the other, and the second cannot take the first one\'s fighter', () => {
+    open('duo')
+    expect(useGame.getState().selectFor).toBe('player')
+    handleKey('ArrowRight')
+    handleKey('Enter') // player 1: Amy
+    expect(useGame.getState()).toMatchObject({ phase: 'select', selectFor: 'enemy' })
+    expect(useGame.getState().fighters.player).toBe('amy')
+    expect(slotFighter(useGame.getState().selectCursor)?.id).toBe('james') // the cursor is on a free one
+    useGame.getState().pointSelect(1) // Amy: taken
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('select')
+    useGame.getState().pointSelect(0)
+    handleKey('Enter') // player 2: James
+    const g = useGame.getState()
+    expect(g.phase).toBe('choose')
+    expect(g.fighters).toEqual({ player: 'amy', enemy: 'james' })
+  })
+
+  it('Esc in the second choice goes back to the first, in the first back to the setup', () => {
+    open('duo')
+    handleKey('Enter') // player 1: James
+    handleKey('Escape')
+    expect(useGame.getState()).toMatchObject({ phase: 'select', selectFor: 'player' })
+    handleKey('Escape')
+    expect(useGame.getState().phase).toBe('setup')
+  })
+
+  it('the rival of a fighter is another one', () => {
+    expect(rivalOf('james', () => 0.99)).toBe('amy')
+    expect(rivalOf('amy', () => 0)).toBe('james')
   })
 })

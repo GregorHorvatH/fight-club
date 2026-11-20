@@ -51,7 +51,7 @@ Every sound is synthesised with Web Audio (no files).
 
 ## Characters (3D, optional)
 
-The 3D view can use real characters from [Mixamo](https://www.mixamo.com): **James** (left) and **Amy** (right). The pose is
+The 3D view can use real characters from [Mixamo](https://www.mixamo.com): **James** and **Amy**, chosen on the Select fighter screen. The pose is
 still computed by `computePose` and applied to an invisible driver skeleton; the character's 65 bones are turned and placed to
 follow it every frame (`src/ui/rig.ts`: a direction and a position for each bone, the shortest arc from the T-pose, a lateral axis
 where the twist matters, closed fists). The limbs are fitted to the proportions of the driver skeleton, so a strike aimed at a
@@ -65,8 +65,11 @@ To use the characters:
 1. In Mixamo pick a character, **do not pick an animation**, Download: Format `FBX Binary (.fbx)`, Pose **`T-pose`**.
 2. Unzip each download into its own folder: `assets-src/james/`, `assets-src/amy/` (the big `.fbx` is the character).
 3. `pnpm models` converts them to `public/models/james.glb` and `public/models/amy.glb`: FBX to glTF, the 4096 px textures
-   shrunk to 1024 px and re-encoded as WebP (25-55 MB each become 1-3 MB). Which file is the left and which the right fighter is
-   set in `MODEL_URL` in `src/ui/ModelFighter3D.tsx`; the names above the health bars are in `src/ui/names.ts`.
+   shrunk to 1024 px and re-encoded as WebP (25-55 MB each become 1-3 MB). The fighters (name, model, face, height, whether they
+   are there from the start) are listed in `src/state/roster.ts`.
+4. `pnpm portraits shot.png` cuts the faces for the tiles of the Select fighter screen (`public/models/<id>.webp`) out of a
+   screenshot of the poster scene (the command and the window size are at the top of `scripts/make-portraits.mjs`). Without a face
+   a tile shows the first letter of the name.
 
 The models are loaded only when the 3D view is opened (like three.js itself).
 
@@ -102,7 +105,9 @@ pnpm build      # static site in dist/
 
 The main menu: **Tournament** (not made yet: a row of opponents, each beaten one becomes a fighter you can choose), **Arcade Mode** (one
 player against the enemy), **VS Mode** (two players, one screen) **Options** (not made yet) and **About** (the rules). Arcade and VS lead to a setup screen
-(difficulty, arena, view), then the fight.
+(difficulty, arena, view), then to **Select fighter**: a grid of faces (4 across in a wide window, 3 across in a tall one, 12 tiles),
+where the fighters that are not unlocked yet are "?" (nothing unlocks yet: the tournament is not made). Alone you choose your
+fighter and the enemy is another one; in VS Mode the first player chooses, then the second (not the same one). Then the fight.
 
 ## Controls
 
@@ -122,7 +127,8 @@ keys of a player are laid out like the old picture, left to right and top to bot
 | `1` `2` `3` | difficulty (setup screen, arcade) |
 | `V` | 2D / 3D view (also two buttons on the setup screen) |
 | `B` | the next arena (setup screen) |
-| `Esc` | back to the main menu (from the about, setup and end screens) |
+| arrows / `W` `A` `S` `D` | move over the tiles of the Select fighter screen; `Enter` chooses |
+| `Esc` | back (from Select fighter one step, from the about, setup and end screens to the menu) |
 | `Esc` in a fight | pause (also the ⏸ button in the header): `↑` `↓` and `Enter` choose Continue or Reset (= the main menu); `Esc` continues |
 | `M` | mute |
 

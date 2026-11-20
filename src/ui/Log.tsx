@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { turnOf, useGame } from '../state/game'
-import { NAMES } from './names'
+import { useNames } from './names'
 import type { RoundResult, Side, Strike } from '../sim'
 import { timelineOf } from '../timing'
 import { useLanded } from './reveal'
@@ -32,7 +32,7 @@ const FADE = [1, 0.5]
 export function LogOverlay({ side }: { side: Side }) {
   const log = useGame((s) => s.match.log)
   const replaying = useGame((s) => s.phase === 'reveal')
-  const mode = useGame((s) => s.mode)
+  const names = useNames()
   const landed = useLanded()
   // a fighter's row of the round being replayed shows up when its blow lands (and it has no row when the strike was never thrown)
   const rows = log.filter((r, i) => {
@@ -41,7 +41,7 @@ export function LogOverlay({ side }: { side: Side }) {
     return landed >= timelineOf(r).order.indexOf(side) + 1
   })
   return (
-    <section className={`olog ${side}`} aria-label={`${NAMES[mode][side]}'s strikes`}>
+    <section className={`olog ${side}`} aria-label={`${names[side]}'s strikes`}>
       <ol>
         {rows
           .slice(-FADE.length)
@@ -82,10 +82,10 @@ export function Hint() {
   const round = useGame((s) => s.match.round)
   const idle = useIdle(`${matchId}/${round}/${phase}/${turn}/${c.attack}/${c.block}/${c.weapon}/${c.locked}`)
   const step = stepOf(c)
-  const names = NAMES[mode]
+  const names = useNames()
   const me = names[turn]
   const other = names[turn === 'player' ? 'enemy' : 'player']
-  if (phase === 'menu' || phase === 'about' || phase === 'setup') return null // no fight yet: nothing to explain
+  if (phase === 'menu' || phase === 'about' || phase === 'setup' || phase === 'select') return null // no fight yet: nothing to explain
   const missing = phase === 'choose' && idle && (step === 'guard' || step === 'strike' || step === 'both') ? idleHint(step, mode === 'duo' ? 'yourself' : me, other) : ''
   if (mode === 'duo') {
     return (
@@ -98,7 +98,7 @@ export function Hint() {
   if (empty)
     return (
       <p className="hint">
-        Tap James to guard a zone and Amy to strike one, with a punch (fast) or a kick (slow, hits harder). If the enemy strikes the zone you guard, you take nothing.
+        Tap {names.player} to guard a zone and {names.enemy} to strike one, with a punch (fast) or a kick (slow, hits harder). If the enemy strikes the zone you guard, you take nothing.
       </p>
     )
   return missing ? <p className="hint nudge">{missing}</p> : null
