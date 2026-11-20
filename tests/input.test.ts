@@ -108,7 +108,7 @@ describe('pressing the keys', () => {
   it('two players choose one after the other: the keys of the one whose turn it is work, the others do nothing', () => {
     useSettings.setState({ mode: 'duo' })
     useGame.getState().start()
-    press('KeyP', 'KeyJ') // player 2 tries to choose first: nothing happens
+    press('KeyJ') // player 2 tries to choose first: nothing happens (P would pause the fight now, it is player 1's turn)
     expect(useGame.getState().choice.enemy).toMatchObject({ attack: null, block: null })
     press('KeyE', 'KeyA') // player 1 strikes the head and guards the body
     expect(mine()).toMatchObject({ attack: 'head', block: 'body' })
@@ -1041,5 +1041,49 @@ describe('what you strike with stays for the next round', () => {
     expect(nextRound(choice, m).player.weapon).toBe('hand')
     expect(nextRound(choice, m).enemy.weapon).toBe('foot')
     expect(nextRound(choice, m).player.attack).toBeNull()
+  })
+})
+
+describe('P pauses (Esc leaves the full screen of a browser)', () => {
+  const press = (...codes: string[]) => codes.forEach((c) => handleKey(c))
+  beforeEach(() => {
+    useSettings.setState({ mode: 'solo' })
+    useGame.getState().start()
+  })
+
+  it('P pauses a fight like Esc, and P continues like Esc', () => {
+    press('KeyP')
+    expect(useGame.getState().paused).toBe(true)
+    press('KeyP')
+    expect(useGame.getState().paused).toBe(false)
+  })
+
+  it('P closes the layout of the keys (going back to the list) and then continues', () => {
+    press('KeyP', 'ArrowDown', 'ArrowDown', 'Enter')
+    expect(useGame.getState().pauseControls).toBe(true)
+    press('KeyP')
+    expect(useGame.getState().pauseControls).toBe(false)
+    expect(useGame.getState().paused).toBe(true)
+    press('KeyP')
+    expect(useGame.getState().paused).toBe(false)
+  })
+
+  it('there is nothing to pause in the menus', () => {
+    useGame.getState().toMenu()
+    press('KeyP')
+    expect(useGame.getState().paused).toBe(false)
+  })
+
+  it('in VS Mode P is the second player\'s strike at the head while that player is choosing, and a pause otherwise', () => {
+    useSettings.setState({ mode: 'duo' })
+    useGame.getState().start()
+    press('KeyP') // the first player is choosing: a pause
+    expect(useGame.getState().paused).toBe(true)
+    press('KeyP')
+    press('KeyE', 'KeyQ', 'Space') // player 1 picks and locks in
+    expect(useGame.getState().choice.player.locked).toBe(true)
+    press('KeyP') // the second player's turn: a strike at the head, not a pause
+    expect(useGame.getState().paused).toBe(false)
+    expect(useGame.getState().choice.enemy.attack).toBe('head')
   })
 })

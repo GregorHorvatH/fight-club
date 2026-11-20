@@ -56,7 +56,7 @@ export const fr = {
     super: 'Super',
     guardZone: 'protéger : {{zone}}',
     strikeZone: 'frapper : {{zone}}',
-    footer: '<kbd>Entrée</kbd> / <kbd>Espace</kbd> valider · <kbd>V</kbd> 2D / 3D · <kbd>M</kbd> couper le son · <kbd>Échap</kbd> retour',
+    footer: '<kbd>Entrée</kbd> / <kbd>Espace</kbd> valider · <kbd>V</kbd> 2D / 3D · <kbd>M</kbd> couper le son · <kbd>P</kbd> pause · <kbd>Échap</kbd> retour',
   },
   setup: {
     tournament: 'Une série d’adversaires, l’un après l’autre, chacun plus fort que le précédent (l’ennemi devient plus malin au fil du tournoi). Chaque combattant vaincu est débloqué pour de bon. Choisissez ensuite votre combattant.',
@@ -115,7 +115,7 @@ export const fr = {
     comboTitle: 'coups portés à la suite',
     switchTo3d: 'Passer en 3D (V)',
     switchTo2d: 'Passer en 2D (V)',
-    pause: 'Pause (Échap)',
+    pause: 'Pause (Échap / P)',
     mute: 'Couper le son (M)',
     unmute: 'Rétablir le son (M)',
   },

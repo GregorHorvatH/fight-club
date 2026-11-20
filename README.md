@@ -174,7 +174,7 @@ keys of a player are laid out like the old picture, left to right and top to bot
 | `B` | the next arena (setup screen) |
 | arrows / `W` `A` `S` `D` | move over the tiles of the Select fighter screen; `Enter` chooses |
 | `Esc` | back (from Select fighter one step, from the about, setup and end screens to the menu) |
-| `Esc` in a fight | pause (also the ⏸ button in the header): `↑` `↓` and `Enter` choose Continue, Fight again (the round starts over: a round that was fought is taken back), Controls (the layout of the keys) or Back to main menu; `Esc` continues |
+| `Esc` or `P` in a fight | pause (also the ⏸ button in the header; `P` is the second player's key for a strike at the head, so in VS Mode it pauses except while that player is choosing): `↑` `↓` and `Enter` choose Continue, Fight again (the round starts over: a round that was fought is taken back), Controls (the layout of the keys) or Back to main menu; `Esc` continues |
 | `M` | mute |
 
 Between two people the second player's keys are `I` `J` `,` (guard head / body / legs), `O` `K` `.` (punch, kick, fight) and `P` `L` `/` (strike

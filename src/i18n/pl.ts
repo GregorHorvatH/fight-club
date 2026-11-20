@@ -56,7 +56,7 @@ export const pl = {
     super: 'Super',
     guardZone: 'osłonić: {{zone}}',
     strikeZone: 'uderzyć: {{zone}}',
-    footer: '<kbd>Enter</kbd> / <kbd>Spacja</kbd> zatwierdź · <kbd>V</kbd> 2D / 3D · <kbd>M</kbd> wycisz · <kbd>Esc</kbd> wstecz',
+    footer: '<kbd>Enter</kbd> / <kbd>Spacja</kbd> zatwierdź · <kbd>V</kbd> 2D / 3D · <kbd>M</kbd> wycisz · <kbd>P</kbd> pauza · <kbd>Esc</kbd> wstecz',
   },
   setup: {
     tournament: 'Szereg przeciwników, jeden po drugim, każdy silniejszy od poprzedniego (przeciwnik staje się sprytniejszy). Każdy pokonany wojownik zostaje odblokowany na stałe. Następnie wybierz swojego wojownika.',
@@ -121,7 +121,7 @@ export const pl = {
     comboTitle: 'trafień z rzędu',
     switchTo3d: 'Przełącz na 3D (V)',
     switchTo2d: 'Przełącz na 2D (V)',
-    pause: 'Pauza (Esc)',
+    pause: 'Pauza (Esc / P)',
     mute: 'Wycisz (M)',
     unmute: 'Włącz dźwięk (M)',
   },

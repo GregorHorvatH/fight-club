@@ -56,7 +56,7 @@ export const uk = {
     super: 'Супер',
     guardZone: 'захистити: {{zone}}',
     strikeZone: 'вдарити: {{zone}}',
-    footer: '<kbd>Enter</kbd> / <kbd>Пробіл</kbd> підтвердити · <kbd>V</kbd> 2D / 3D · <kbd>M</kbd> вимкнути звук · <kbd>Esc</kbd> назад',
+    footer: '<kbd>Enter</kbd> / <kbd>Пробіл</kbd> підтвердити · <kbd>V</kbd> 2D / 3D · <kbd>M</kbd> вимкнути звук · <kbd>P</kbd> пауза · <kbd>Esc</kbd> назад',
   },
   setup: {
     tournament: 'Низка суперників, один за одним, кожен сильніший за попереднього (ворог стає хитрішим). Кожен переможений боєць розблокується назавжди. Далі оберіть свого бійця.',
@@ -121,7 +121,7 @@ export const uk = {
     comboTitle: 'влучань підряд',
     switchTo3d: 'Перейти на 3D (V)',
     switchTo2d: 'Перейти на 2D (V)',
-    pause: 'Пауза (Esc)',
+    pause: 'Пауза (Esc / P)',
     mute: 'Вимкнути звук (M)',
     unmute: 'Увімкнути звук (M)',
   },

@@ -59,7 +59,7 @@ export function Hud() {
             {view === '2d' ? '3D' : '2D'}
           </button>
           {(phase === 'choose' || phase === 'reveal') && (
-            <button className="icon" onClick={pause} aria-label={t('hud.pause')} title="Esc">
+            <button className="icon" onClick={pause} aria-label={t('hud.pause')} title="Esc / P">
               ⏸
             </button>
           )}

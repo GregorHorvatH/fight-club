@@ -56,7 +56,7 @@ export const it = {
     super: 'Super',
     guardZone: 'proteggere: {{zone}}',
     strikeZone: 'colpire: {{zone}}',
-    footer: '<kbd>Invio</kbd> / <kbd>Spazio</kbd> conferma · <kbd>V</kbd> 2D / 3D · <kbd>M</kbd> muto · <kbd>Esc</kbd> indietro',
+    footer: '<kbd>Invio</kbd> / <kbd>Spazio</kbd> conferma · <kbd>V</kbd> 2D / 3D · <kbd>M</kbd> muto · <kbd>P</kbd> pausa · <kbd>Esc</kbd> indietro',
   },
   setup: {
     tournament: 'Una serie di avversari, uno dopo l’altro, ognuno più forte del precedente (il nemico diventa più furbo). Ogni combattente battuto viene sbloccato per sempre. Poi scegli il tuo combattente.',
@@ -115,7 +115,7 @@ export const it = {
     comboTitle: 'colpi a segno di fila',
     switchTo3d: 'Passa al 3D (V)',
     switchTo2d: 'Passa al 2D (V)',
-    pause: 'Pausa (Esc)',
+    pause: 'Pausa (Esc / P)',
     mute: 'Muto (M)',
     unmute: 'Riattiva l’audio (M)',
   },

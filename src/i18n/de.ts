@@ -56,7 +56,7 @@ export const de = {
     super: 'Super',
     guardZone: 'decken: {{zone}}',
     strikeZone: 'angreifen: {{zone}}',
-    footer: '<kbd>Enter</kbd> / <kbd>Leertaste</kbd> bestätigen · <kbd>V</kbd> 2D / 3D · <kbd>M</kbd> Ton aus · <kbd>Esc</kbd> zurück',
+    footer: '<kbd>Enter</kbd> / <kbd>Leertaste</kbd> bestätigen · <kbd>V</kbd> 2D / 3D · <kbd>M</kbd> Ton aus · <kbd>P</kbd> Pause · <kbd>Esc</kbd> zurück',
   },
   setup: {
     tournament: 'Eine Reihe von Gegnern, einer nach dem anderen, jeder stärker als der letzte (der Gegner wird mit der Zeit schlauer). Jeder besiegte Kämpfer wird dauerhaft freigeschaltet. Wähle als Nächstes deinen Kämpfer.',
@@ -115,7 +115,7 @@ export const de = {
     comboTitle: 'Treffer in Folge',
     switchTo3d: 'Zu 3D wechseln (V)',
     switchTo2d: 'Zu 2D wechseln (V)',
-    pause: 'Pause (Esc)',
+    pause: 'Pause (Esc / P)',
     mute: 'Ton aus (M)',
     unmute: 'Ton an (M)',
   },

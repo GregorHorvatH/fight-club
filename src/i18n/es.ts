@@ -56,7 +56,7 @@ export const es = {
     super: 'Súper',
     guardZone: 'proteger: {{zone}}',
     strikeZone: 'golpear: {{zone}}',
-    footer: '<kbd>Intro</kbd> / <kbd>Espacio</kbd> confirmar · <kbd>V</kbd> 2D / 3D · <kbd>M</kbd> silenciar · <kbd>Esc</kbd> atrás',
+    footer: '<kbd>Intro</kbd> / <kbd>Espacio</kbd> confirmar · <kbd>V</kbd> 2D / 3D · <kbd>M</kbd> silenciar · <kbd>P</kbd> pausa · <kbd>Esc</kbd> atrás',
   },
   setup: {
     tournament: 'Una serie de rivales, uno tras otro, cada uno más duro que el anterior (el enemigo se vuelve más listo). Cada luchador que derrotes se desbloquea para siempre. A continuación, elige a tu luchador.',
@@ -115,7 +115,7 @@ export const es = {
     comboTitle: 'golpes acertados seguidos',
     switchTo3d: 'Cambiar a 3D (V)',
     switchTo2d: 'Cambiar a 2D (V)',
-    pause: 'Pausa (Esc)',
+    pause: 'Pausa (Esc / P)',
     mute: 'Silenciar (M)',
     unmute: 'Activar sonido (M)',
   },

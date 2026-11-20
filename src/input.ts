@@ -12,7 +12,7 @@
  * Between two people they choose one after the other (the left fighter first): only the keys of the one whose turn it is do anything.
  * Enter and Space confirm for whoever is choosing. In the main menu: up / down (or W / S) move the cursor, Enter chooses. On the setup
  * screen: 1 2 3 = difficulty (arcade), up / down + Enter = Select fighter or Back (the end screen: fight again or back), on the selection screen the arrows (or W A S D) move over the tiles and Enter chooses, B = the next arena, Esc = back to the menu (also from the about and the end screens).
- * In a fight Esc pauses (then up / down and Enter choose: Continue, Fight again or Back to main menu; Esc continues). Anywhere: V = 2D / 3D, M = mute. Auto-repeat is ignored.
+ * In a fight Esc or P pauses (P is the second player's key for a strike at the head, so not while that player is choosing) (then up / down and Enter choose: Continue, Fight again or Back to main menu; Esc continues). Anywhere: V = 2D / 3D, M = mute. Auto-repeat is ignored.
  */
 import { turnOf, useGame } from './state/game'
 import { nextArena, useArenas } from './state/arenas'
@@ -86,14 +86,17 @@ export function handleKey(code: string): boolean {
   const go = code === 'Enter' || code === 'Space'
   if (g.paused) {
     // the pause window is a list like the main menu: up / down move the cursor, Enter / Space choose, Esc goes on; nothing else does anything
-    if (g.pauseControls) return code === 'Escape' || go ? (g.closeControls(), true) : false // the layout of the keys: back to the list
-    if (code === 'Escape') return g.resume(), true
+    if (g.pauseControls) return code === 'Escape' || code === 'KeyP' || go ? (g.closeControls(), true) : false // the layout of the keys: back to the list
+    if (code === 'Escape' || code === 'KeyP') return g.resume(), true
     if (code === 'ArrowUp' || code === 'KeyW') return g.movePause(-1), true
     if (code === 'ArrowDown' || code === 'KeyS') return g.movePause(1), true
     if (go) return g.choosePause(), true
     return false
   }
-  if (code === 'Escape' && (g.phase === 'choose' || g.phase === 'reveal')) return g.pause(), true
+  // Esc or P pauses a fight (a browser leaves the full screen on Esc: P is for that). In VS Mode P is also the second player's key for a
+  // strike at the head, so while that player is choosing it is that and not the pause (Esc and the button do that)
+  const secondChooses = g.mode === 'duo' && g.phase === 'choose' && turnOf(g.choice, g.mode) === 'enemy'
+  if ((code === 'Escape' || (code === 'KeyP' && !secondChooses)) && (g.phase === 'choose' || g.phase === 'reveal')) return g.pause(), true
   switch (g.phase) {
     case 'menu': {
       const m = useMenu.getState()

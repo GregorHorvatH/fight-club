@@ -63,7 +63,7 @@ export const en = {
     super: 'Super',
     guardZone: 'guard: {{zone}}',
     strikeZone: 'strike: {{zone}}',
-    footer: '<kbd>Enter</kbd> / <kbd>Space</kbd> confirm · <kbd>V</kbd> 2D / 3D · <kbd>M</kbd> mute · <kbd>Esc</kbd> back',
+    footer: '<kbd>Enter</kbd> / <kbd>Space</kbd> confirm · <kbd>V</kbd> 2D / 3D · <kbd>M</kbd> mute · <kbd>P</kbd> pause · <kbd>Esc</kbd> back',
   },
   setup: {
     tournament: 'A row of opponents, one after another, each tougher than the last (the enemy gets cleverer as you go). Every fighter you beat is unlocked for good. Choose your fighter next.',
@@ -122,7 +122,7 @@ export const en = {
     comboTitle: 'strikes landed in a row',
     switchTo3d: 'Switch to 3D (V)',
     switchTo2d: 'Switch to 2D (V)',
-    pause: 'Pause (Esc)',
+    pause: 'Pause (Esc / P)',
     mute: 'Mute (M)',
     unmute: 'Unmute (M)',
   },
