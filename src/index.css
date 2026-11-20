@@ -29,10 +29,7 @@ kbd {
   border-radius: 6px; background: var(--panel-2); color: var(--dim); font: 600 .72em/1.6 ui-monospace, monospace; text-align: center;
 }
 
-.app {
-  position: relative; max-width: 980px; min-height: 100dvh; margin: 0 auto; padding: 14px 16px 16px;
-  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(220px, 1fr) auto auto; gap: 12px;
-}
+.app { position: relative; height: 100dvh; min-height: 0; overflow: hidden; }
 
 /* ---- HUD ---- */
 .hud { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 14px; align-items: start; }
@@ -65,7 +62,6 @@ kbd {
 .arena::after { /* the floor */
   content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 14%; background: linear-gradient(180deg, #1a1626, #100e18); border-top: 1px solid var(--line);
 }
-.vs { position: absolute; left: 50%; top: 14%; transform: translateX(-50%); font-weight: 900; font-size: clamp(1.6rem, 5vw, 2.6rem); letter-spacing: .1em; color: #ffffff1f; }
 /* 2D ring: one SVG scene (so a strike aimed at a zone really arrives there), sized to fit the arena */
 .arena.flat { container-type: size; padding: 0; } /* no side padding: the scene is sized by the whole arena */
 .scene { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: min(76cqw, 100cqh * 7.6 / 4.5); aspect-ratio: 7.6 / 4.5; }
@@ -89,6 +85,9 @@ kbd {
 .player { --c: #2bb893; --cj: #7be6cb; --cd: #1f8a6e; --cdj: #4bb89c; }
 .enemy { --c: #d9474c; --cj: #f29a9e; --cd: #a3363a; --cdj: #cf6a6e; }
 .part .eye { fill: #0b0a10; }
+/* the zones of a fighter that can be tapped (solo, while choosing) */
+.part .hit { fill: transparent; stroke: none; pointer-events: all; }
+.figure.pickable .part { cursor: pointer; }
 .spark { fill: #fff; }
 .spark.blocked { fill: var(--shield); }
 .part.hit rect, .part.hit circle { animation: flash-hit .6s .3s forwards; }
@@ -113,7 +112,6 @@ kbd {
 .arena.has-bg { background-size: cover; background-position: center bottom; background-repeat: no-repeat; }
 .arena.has-bg .floor { fill: transparent; }
 .arena.has-bg .floor-line { stroke: transparent; }
-.arena.has-bg .vs { color: #ffffff30; text-shadow: 0 2px 10px #0008; }
 .arena.three { display: block; padding: 0; }
 .arena.three::after { display: none; }
 .canvas-wrap { position: absolute; inset: 0; }
@@ -126,24 +124,30 @@ kbd {
 .arena.three.has-bg .slot.player { left: 35%; }
 .arena.three.has-bg .slot.enemy { left: 65%; }
 .arena .slot .floats { bottom: 0; }
-.vs { z-index: 2; pointer-events: none; }
+/* the intro of a match: names from the sides, VS slams down and is gone, then FIGHT! (2.3 s in all; see Intro.tsx) */
+.intro { position: absolute; inset: 0; z-index: 4; pointer-events: none; display: grid; place-items: center; overflow: hidden; }
+.intro > * { grid-area: 1 / 1; font-weight: 900; text-transform: uppercase; text-shadow: 0 3px 14px #000b, 0 0 2px #000; opacity: 0; }
+.intro .vs { margin-bottom: 18%; font-size: clamp(2.6rem, 10vw, 5.4rem); letter-spacing: .08em; color: #fff; animation: intro-vs 1.25s cubic-bezier(.2, .9, .25, 1) .05s both; }
+.intro .nm { align-self: start; margin-top: 7%; font-size: clamp(1.1rem, 4vw, 1.9rem); letter-spacing: .14em; }
+.intro .nm.player { justify-self: start; margin-left: 6%; color: var(--player); animation: intro-from-left 1.25s ease-out .05s both; }
+.intro .nm.enemy { justify-self: end; margin-right: 6%; color: var(--enemy); animation: intro-from-right 1.25s ease-out .05s both; }
+.intro .fight { margin-bottom: 20%; font-size: clamp(2.2rem, 9vw, 4.6rem); letter-spacing: .1em; color: var(--gold); animation: intro-fight 1.1s cubic-bezier(.2, 1.2, .3, 1) 1.15s both; }
+@keyframes intro-vs { 0% { opacity: 0; transform: scale(3.2); filter: blur(8px); } 16% { opacity: 1; transform: scale(1); filter: blur(0); } 22% { transform: scale(1.08); } 28% { transform: scale(1); } 76% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(.7); } }
+@keyframes intro-from-left { 0% { opacity: 0; transform: translateX(-60px); } 20% { opacity: 1; transform: none; } 76% { opacity: 1; } 100% { opacity: 0; transform: translateX(-30px); } }
+@keyframes intro-from-right { 0% { opacity: 0; transform: translateX(60px); } 20% { opacity: 1; transform: none; } 76% { opacity: 1; } 100% { opacity: 0; transform: translateX(30px); } }
+@keyframes intro-fight { 0% { opacity: 0; transform: scale(.4); } 18% { opacity: 1; transform: scale(1.18); } 32% { transform: scale(1); } 72% { opacity: 1; } 100% { opacity: 0; transform: scale(1.35); } }
 
-/* ---- controls ---- */
-.controls { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; align-items: stretch; }
-.picker { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px 12px; }
-.picker h2 { margin: 0 0 8px; font-size: .78rem; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
-.picker.attack h2 { color: var(--gold); }
-.picker.block h2 { color: var(--shield); }
-.zones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.zone-btn {
-  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; text-transform: capitalize; font-weight: 700;
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; transition: transform .08s, border-color .12s, background .12s;
+/* ---- the three buttons ---- */
+.mid { display: flex; flex-direction: column; gap: 10px; justify-content: center; }
+.weapon {
+  display: grid; grid-template-columns: 1.6em 1fr auto; align-items: center; gap: 6px; padding: 12px 12px; font-weight: 800; font-size: 1rem;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; text-align: left; transition: transform .08s, border-color .12s, background .12s;
 }
-.zone-btn:not(:disabled):hover { border-color: #5b5476; }
-.zone-btn:not(:disabled):active { transform: scale(.96); }
-.zone-btn:disabled { opacity: .55; }
-.attack .zone-btn.on { border-color: var(--gold); background: #ffc85722; }
-.block .zone-btn.on { border-color: var(--shield); background: #58b8ff22; }
+.weapon i { font-style: normal; font-size: 1.3rem; }
+.weapon:not(:disabled):hover { border-color: #5b5476; }
+.weapon:not(:disabled):active { transform: scale(.97); }
+.weapon:disabled { opacity: .55; }
+.weapon.on { border-color: var(--gold); background: #ffc85226; box-shadow: 0 0 0 1px var(--gold); }
 .go {
   align-self: center; padding: 16px 22px; font-weight: 900; font-size: 1.1rem; letter-spacing: .04em; color: #1a1205;
   background: linear-gradient(180deg, #ffd777, var(--gold)); border: 0; border-radius: 12px; box-shadow: 0 4px 0 #b88a1f, 0 8px 24px #ffc85733;
@@ -153,43 +157,10 @@ kbd {
 .go:not(:disabled):hover { filter: brightness(1.06); }
 .go:not(:disabled):active { transform: translateY(3px); box-shadow: 0 1px 0 #b88a1f; }
 .go:disabled { background: var(--panel-2); color: var(--dim); box-shadow: none; }
+.mid .go { align-self: stretch; min-width: 0; }
+.go.wait { font-size: .95rem; font-weight: 700; letter-spacing: 0; line-height: 1.25; text-align: center; }
+.go.wait kbd { opacity: .5; }
 .go.big { flex-direction: row; justify-content: center; gap: 10px; margin: 14px auto 0; padding: 14px 34px; }
-
-/* strike with a hand or a foot */
-.weapons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
-.weapon { padding: 6px 4px; font-size: .85rem; font-weight: 700; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; }
-.weapon:not(:disabled):hover { border-color: #5b5476; }
-.weapon.on { border-color: var(--gold); background: #ffc85722; }
-.weapon:disabled { opacity: .55; }
-
-/* two players on one screen */
-.controls.duo { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-.player-card { display: grid; gap: 8px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
-.player-card.player { border-top: 3px solid var(--player); }
-.player-card.enemy { border-top: 3px solid var(--enemy); }
-.player-card h3 { margin: 0; font-size: .95rem; letter-spacing: .08em; text-transform: uppercase; }
-.player-card h3 small { margin-left: 6px; font-weight: 600; font-size: .75rem; letter-spacing: .06em; color: var(--dim); }
-.player-card.player h3 { color: var(--player); }
-.player-card.enemy h3 { color: var(--enemy); }
-.player-card .pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 8px; }
-.player-card .picker { padding: 8px; background: var(--panel-2); }
-.player-card .zone-btn { padding: 8px 2px; font-size: .85rem; background: var(--panel); }
-.player-card.locked { border-color: var(--player); }
-.player-card.enemy.locked { border-color: var(--enemy); }
-.go.lock { flex-direction: row; justify-content: center; gap: 8px; padding: 10px 14px; font-size: 1rem; }
-.player-card.locked .go.lock { background: var(--panel-2); color: var(--text); box-shadow: none; }
-.player-card.locked .go.lock kbd { background: var(--panel); border-color: var(--line); color: var(--dim); }
-.go.next { grid-column: 1 / -1; flex-direction: row; justify-content: center; gap: 10px; }
-
-/* ---- log ---- */
-.log { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: .85rem; min-height: 5.6em; align-content: start; }
-.log li { display: grid; grid-template-columns: 2.6em 1fr 1fr; gap: 10px; padding: 4px 10px; background: var(--panel); border-radius: 8px; text-transform: capitalize; }
-.log li:first-child { background: var(--panel-2); }
-.log b { color: var(--dim); }
-.log .hit { color: var(--text); }
-.log .crit { color: var(--gold); font-weight: 700; }
-.log .miss { color: var(--shield); }
-.hint { margin: 0; min-height: 5.6em; color: var(--dim); font-size: .9rem; text-align: center; padding: 8px 12px; }
 
 /* ---- title / end screens ---- */
 .screen {
@@ -206,6 +177,18 @@ kbd {
 .choose-row button.on { border-color: var(--gold); background: #ffc85722; }
 .blurb { color: var(--dim); font-size: .88rem; margin-top: 8px !important; }
 .record, .keys { color: var(--dim); font-size: .8rem; margin-top: 14px !important; }
+/* the nine keys of a player, drawn like the screen: guard figure | buttons | strike figure */
+.keymap { display: flex; justify-content: center; gap: 26px; flex-wrap: wrap; margin-top: 14px; }
+.kgrid { display: grid; grid-template-columns: 2.6em 4.4em 2.6em 3em; gap: 4px 6px; align-items: center; justify-items: center; }
+.kgrid .kname { grid-column: 1 / -1; font-size: .8rem; letter-spacing: .1em; text-transform: uppercase; }
+.kname.player { color: var(--player); } .kname.enemy { color: var(--enemy); }
+.kh { font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.kh.guard { color: var(--shield); } .kh.strike { color: var(--gold); }
+.krow { display: contents; }
+.kmid { display: inline-flex; align-items: center; gap: 4px; }
+.kmid i { font-style: normal; font-size: .95rem; }
+.kz { justify-self: start; font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+.kgrid kbd { font-size: .85em; min-width: 2.2em; }
 .newbest { color: var(--gold); font-weight: 800; letter-spacing: .06em; }
 .end.won h1 { color: var(--player); }
 .end.lost h1 { color: var(--enemy); }
@@ -219,21 +202,75 @@ kbd {
 .arena-opt .plain { background: linear-gradient(180deg, #15131d, #0b0a10); }
 .arena-opt.on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
 
+/* ---- the arena fills the window, everything is on the field ---- */
+.app .arena { position: absolute; inset: 0; min-height: 0; border: 0; border-radius: 0; }
+.app .floor { height: 9; y: -9; }
+.app .hud { position: absolute; top: 0; left: 0; right: 0; z-index: 6; padding: 12px 18px 26px; background: linear-gradient(180deg, rgba(8, 6, 14, .78), rgba(8, 6, 14, 0)); pointer-events: none; }
+.app .hud button { pointer-events: auto; }
+.app .intro .nm { margin-top: 96px; }
+
+/* the hint, at the top under the health bars (between the two logs) */
+.dock { position: absolute; left: 0; right: 0; top: 76px; z-index: 6; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; }
+.dock .hint.turn b { font-weight: 800; }
+.dock .hint.turn.player b:first-child { color: var(--player); }
+.dock .hint.turn.enemy b:first-child { color: var(--enemy); }
+.dock .hint { margin: 0; max-width: min(680px, calc(100vw - 2 * 290px)); min-width: min(100%, 300px); text-align: center; color: #fff; opacity: .92; font-size: .92rem; line-height: 1.35; text-shadow: 0 1px 8px #000, 0 0 3px #000; }
+
+/* the buttons stand at the edges of the screen, each on the side of its fighter: the punch and the kick on James's side, the one that goes on on Amy's */
+.sides { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.side { position: absolute; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); width: 132px; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+.side.left { left: clamp(10px, 2.5vw, 40px); }
+.side.right { right: clamp(10px, 2.5vw, 40px); }
+.side .weapon { background: rgba(21, 19, 29, .82); backdrop-filter: blur(6px); }
+.side .weapon.on { background: rgba(70, 52, 14, .9); }
+.side .go { align-self: stretch; min-width: 0; padding: 14px 10px; }
+
+/* the strikes of each fighter, on the field behind the fighters; the older ones fade away */
+.olog { position: absolute; top: 84px; width: min(250px, 30vw); pointer-events: none; font-size: .92rem; color: #fff; text-shadow: 0 1px 7px #000, 0 0 3px #000; }
+.olog.player { left: 22px; }
+.olog.enemy { right: 22px; text-align: right; }
+.olog ol { list-style: none; margin: 0; padding: 0; }
+.olog li { display: flex; gap: 10px; padding: 3px 0; text-transform: capitalize; transition: opacity .7s; animation: olog-in .45s ease-out; }
+.olog.enemy li { flex-direction: row-reverse; }
+.olog b { min-width: 2.1em; opacity: .6; }
+.olog .crit { color: var(--gold); font-weight: 800; }
+.olog .miss { color: #9fd4ff; }
+@keyframes olog-in { from { opacity: 0; transform: translateY(-6px); } }
+
 /* ---- small screens ---- */
 @media (max-width: 640px) {
-  .app { padding: 10px; gap: 10px; grid-template-rows: auto minmax(180px, 1fr) auto auto; }
+  .app .hud { padding: 10px 12px 22px; }
+  .app .intro .nm { margin-top: 118px; }
+  .olog { top: 164px; width: 42vw; font-size: .74rem; }
+  .olog.player { left: 10px; }
+  .olog.enemy { right: 10px; }
+  .dock { top: 102px; padding: 0 12px; }
+  .dock .hint { max-width: none; font-size: .8rem; }
+  .side { width: min(132px, 30vw); gap: 8px; }
+  .side.left { left: 6px; }
+  .side.right { right: 6px; }
+  .side .weapon { padding: 10px 6px; font-size: .86rem; grid-template-columns: 1.3em 1fr; }
+  .side .weapon kbd { display: none; }
+  .side .go { padding: 10px 6px; font-size: .95rem; }
+  .side .go.wait { font-size: .74rem; }
+  .side .go kbd { display: none; }
   .hud { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .center { grid-row: 1; grid-column: 1 / -1; display: flex; justify-content: center; gap: 12px; align-items: baseline; }
-  .controls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .controls.duo { grid-template-columns: minmax(0, 1fr); }
-  .player-card .pair { grid-template-columns: minmax(0, 1fr); }
-  .controls .go { grid-column: 1 / -1; grid-row: 1; flex-direction: row; justify-content: center; gap: 10px; padding: 12px; }
-  .log li { grid-template-columns: 2.4em 1fr; }
-  .log li span:last-child { grid-column: 2; }
   kbd { display: none; }
   .screen kbd { display: inline-block; }
   .arena .slot.player { left: 24%; }
   .arena .slot.enemy { left: 76%; }
+}
+
+/* a tall window: the frame is cut down to the two fighters (see Scene2D and viewFor), standing above the buttons in the corners */
+@media (orientation: portrait) {
+  .scene.tall { bottom: calc(var(--floor, 30%) - 7.69cqw); width: 100cqw; aspect-ratio: 5.2 / 3.984; } /* the floor line is --floor up from the bottom: the gap over the Punch button is the gap under the Kick button (measured in floor.ts) */
+  .scene.tall .slot { top: -4%; }
+  .scene.tall .slot.player { left: 15.4%; }
+  .scene.tall .slot.enemy { left: 84.6%; }
+  .arena.three.has-bg .slot, .arena.three .slot { top: calc(100% - var(--floor, 30%) - 38%); }
+  .arena.three .slot.player { left: 19%; }
+  .arena.three .slot.enemy { left: 81%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

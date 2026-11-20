@@ -9,14 +9,14 @@ vi.mock('../src/audio/synth', () => ({ play: (s: string) => void played.push(s) 
 const { useGame, setRandomSource } = await import('../src/state/game')
 const { useSettings } = await import('../src/state/settings')
 
-/** Two players, so both moves are known: player 1 picks (zone, weapon, guard), player 2 picks (zone, guard) and strikes with a hand. */
+/** Two players, one after the other: player 1 picks (zone, weapon, guard) and locks in, then player 2 picks (zone, guard) and fights. */
 function round(p1: { attack: 'head' | 'body' | 'legs'; weapon: 'hand' | 'foot'; block: 'head' | 'body' | 'legs' }, p2: { attack: 'head' | 'body' | 'legs'; block: 'head' | 'body' | 'legs' }) {
   const g = useGame.getState()
   g.pickAttack('player', p1.attack, p1.weapon)
   g.pickBlock('player', p1.block)
+  g.lock('player')
   g.pickAttack('enemy', p2.attack, 'hand')
   g.pickBlock('enemy', p2.block)
-  g.lock('player')
   g.lock('enemy')
 }
 

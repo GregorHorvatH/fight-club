@@ -1,44 +1,68 @@
-import { useGame } from '../state/game'
+import { turnOf, useGame } from '../state/game'
 import { NAMES } from './names'
 import type { RoundResult, Side, Strike } from '../sim'
 
 const ICON = { hand: '✊', foot: '🦶' } as const
 
-function describe(who: string, s: Strike): string {
-  const what = `${who} ${ICON[s.weapon]} ${s.zone}`
+/** What one strike did: "✊ head: 12", "🦶 legs: blocked (stumble -7)". */
+function describe(s: Strike): string {
+  const what = `${ICON[s.weapon]} ${s.zone}`
   if (s.blocked) return `${what}: blocked${s.recoil ? ` (stumble -${s.recoil})` : ''}`
   return `${what}: ${s.damage}${s.crit ? ' CRIT' : ''}`
 }
 
-function Row({ r, mode }: { r: RoundResult; mode: 'solo' | 'duo' }) {
-  const cls = (s: Side) => (r.strikes[s].blocked ? 'miss' : r.strikes[s].crit ? 'crit' : 'hit')
-  const n = NAMES[mode]
+function Row({ r, side, opacity }: { r: RoundResult; side: Side; opacity?: number }) {
+  const s = r.strikes[side]
   return (
-    <li>
+    <li style={opacity === undefined ? undefined : { opacity }}>
       <b>R{r.round}</b>
-      <span className={cls('player')}>{describe(`${n.player} →`, r.strikes.player)}</span>
-      <span className={cls('enemy')}>{describe(`${n.enemy} →`, r.strikes.enemy)}</span>
+      <span className={s.blocked ? 'miss' : s.crit ? 'crit' : 'hit'}>{describe(s)}</span>
     </li>
   )
 }
 
-export function Log() {
+/** How visible the newest rows of the log on the field are: the older a row, the fainter, and the fourth is gone. */
+const FADE = [1, 0.55, 0.28, 0]
+
+/** The same list, on the field behind the fighters (alone against the enemy): the last three strikes, the older ones fading away. */
+export function LogOverlay({ side }: { side: Side }) {
   const log = useGame((s) => s.match.log)
   const mode = useGame((s) => s.mode)
-  if (log.length === 0)
+  return (
+    <section className={`olog ${side}`} aria-label={`${NAMES[mode][side]}'s strikes`}>
+      <ol>
+        {log
+          .slice(-FADE.length)
+          .reverse()
+          .map((r, i) => (
+            <Row key={r.round} r={r} side={side} opacity={FADE[i]} />
+          ))}
+      </ol>
+    </section>
+  )
+}
+
+/**
+ * The hint under the fighters. Alone: how to choose, until the first round has been played. Between two people: whose turn it is
+ * and what they do, every time (the other one is asked to look away).
+ */
+export function Hint() {
+  const empty = useGame((s) => s.match.log.length === 0)
+  const mode = useGame((s) => s.mode)
+  const turn = useGame((s) => turnOf(s.choice, s.mode))
+  if (mode === 'duo') {
+    const me = NAMES.duo[turn]
+    const other = NAMES.duo[turn === 'player' ? 'enemy' : 'player']
     return (
-      <p className="hint">
-        Pick a zone to strike (with a hand or a foot) and a zone to guard. If you guess where the enemy strikes, you take nothing.
+      <p className={`hint turn ${turn}`}>
+        <b>{me}</b>, tap yourself to guard and {other} to strike, then {turn === 'player' ? 'lock in' : 'fight'}. <b>{other}</b>, look away!
       </p>
     )
+  }
+  if (!empty) return null
   return (
-    <ol className="log" aria-label="Fight log">
-      {log
-        .slice(-5)
-        .reverse()
-        .map((r) => (
-          <Row key={r.round} r={r} mode={mode} />
-        ))}
-    </ol>
+    <p className="hint">
+      Tap James to guard a zone and Amy to strike one, with a punch or a kick. If the enemy strikes the zone you guard, you take nothing.
+    </p>
   )
 }

@@ -1,6 +1,12 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
 import type { Zone } from '../sim'
 import { IMPACT } from '../timing'
+import { usePortrait } from './usePortrait'
+import { HALF_WIDTH } from './camera'
+
+/** A tall frame shows the same width as the 3D camera does (so the fighters are the same size in both views), and this much ground under the feet. */
+const TALL_H = 3.984
+const TALL_BELOW = 0.4
 import { poseInput, type FighterView, type Label } from './arenaView'
 import { BASE_X, FORE, HEAD_R, HEAD_UP, HIP_Y, NECK_UP, SHIN, SHOULDER_UP, THIGH, UPPER, WAIST, aimPoint, computePose, type Pose } from './pose'
 
@@ -109,8 +115,19 @@ function Figure({ side, view, settled }: FigureProps) {
   /** the zone glows gold while you aim at it (on the enemy) and blue while it is guarded */
   const glow = (z: Zone): string | undefined => (view.shield === z ? `url(#glow-shield-${side})` : view.aim === z ? `url(#glow-aim-${side})` : undefined)
 
+  /** a tap / click on a zone of the fighter picks it (solo, while choosing); the pointer over it lights it up as a preview */
+  const tap = (z: Zone) =>
+    view.pick
+      ? {
+          onClick: () => view.pick!(z),
+          onPointerEnter: (e: ReactPointerEvent) => void (e.pointerType === 'mouse' && view.over?.(z)),
+          onPointerLeave: (e: ReactPointerEvent) => void (e.pointerType === 'mouse' && view.over?.(null)),
+        }
+      : {}
+  const hit = (z: Zone, x: number, y: number, w: number, h: number) => view.pick && <rect className="hit" x={x} y={y} width={w} height={h} data-zone={z} />
+
   return (
-    <g className={`figure ${side}${view.ko ? ' ko' : ''}`} transform={`translate(${-dir * BASE_X} 0)${dir < 0 ? ' scale(-1 1)' : ''}`}>
+    <g className={`figure ${side}${view.ko ? ' ko' : ''}${view.pick ? ' pickable' : ''}`} transform={`translate(${-dir * BASE_X} 0)${dir < 0 ? ' scale(-1 1)' : ''}`}>
       <defs>
         <Glow id={`glow-aim-${side}`} color="#ffc857" />
         <Glow id={`glow-shield-${side}`} color="#58b8ff" />
@@ -119,21 +136,24 @@ function Figure({ side, view, settled }: FigureProps) {
         <ellipse cx="0" cy="0" rx="0.75" ry="0.09" className="shadow" />
       </g>
       <g ref={reg('root')}>
-        <g className={`part legs ${state('legs')}`} filter={glow('legs')}>
+        <g className={`part legs ${state('legs')}`} filter={glow('legs')} {...tap('legs')}>
+          {hit('legs', -0.55, 0, 1.1, HIP_Y - 0.05)}
           <Leg limb="F" reg={reg} />
           <Leg limb="N" reg={reg} />
         </g>
         <g ref={reg('chest')}>
-          <g className={`part body ${state('body')}`} filter={glow('body')}>
+          <g className={`part body ${state('body')}`} filter={glow('body')} {...tap('body')}>
+            {hit('body', -0.6, -0.3, 1.2, NECK_UP + 0.07)}
             <Arm limb="F" reg={reg} />
             <rect x="-0.29" y="-0.215" width="0.58" height="1.07" rx="0.29" />
             <circle className="joint" r="0.2" />
             <Arm limb="N" reg={reg} />
           </g>
           <g ref={reg('neck')} transform={`translate(0 ${NECK_UP})`}>
-            <g className={`part head ${state('head')}`} filter={glow('head')}>
+            <g className={`part head ${state('head')}`} filter={glow('head')} {...tap('head')}>
               <circle className="joint" r="0.14" />
               <g transform={`translate(0 ${HEAD_UP})`}>
+                {hit('head', -0.5, -0.5, 1, 1)}
                 <circle r={HEAD_R} />
                 <rect className="eye" x="0.17" y="0" width="0.22" height="0.09" rx="0.045" />
               </g>
@@ -184,10 +204,13 @@ function Arm({ limb, reg }: { limb: Limb; reg: Reg }) {
 
 /** The whole 2D ring as one SVG scene, so a fist that is aimed at the opponent's head really arrives at it. */
 export function Scene2D({ player, enemy, settled, far, stand }: { player: FighterView; enemy: FighterView; settled: boolean; far: boolean; stand: number }) {
+  const portrait = usePortrait()
+  // in a tall window the frame is narrow: it is cut down to the two fighters, so that they fill the width as big as they can be
+  const box = portrait ? { x: -HALF_WIDTH, y: -(TALL_H - TALL_BELOW), w: 2 * HALF_WIDTH, h: TALL_H } : far ? { x: -5.5, y: -5.63, w: 11, h: 6.62 } : { x: -3.8, y: -4.1, w: 7.6, h: 4.5 }
   return (
-    <div className={`scene${far ? ' far' : ''}`}>
+    <div className={`scene${far ? ' far' : ''}${portrait ? ' tall' : ''}`}>
       {/* the fighters fill most of the frame; in front of an arena picture the frame is wider, so they stand in it, small, and the arena is big */}
-      <svg viewBox={far ? `-5.5 ${(-5.63 - stand * 6.62).toFixed(3)} 11 6.62` : '-3.8 -4.1 7.6 4.5'} role="img" aria-label="Two fighters">
+      <svg viewBox={`${box.x} ${(box.y - (far || portrait ? stand * box.h : 0)).toFixed(3)} ${box.w} ${box.h}`} role="img" aria-label="Two fighters">
         <g transform="scale(1 -1)">
           <rect className="floor" x="-30" y="-0.5" width="60" height="0.5" />
           <line className="floor-line" x1="-30" y1="0" x2="30" y2="0" />

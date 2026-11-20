@@ -4,6 +4,7 @@ import { AdditiveBlending, BackSide, Color, MeshStandardMaterial, type MeshBasic
 import type { Zone } from '../sim'
 import { IMPACT } from '../timing'
 import { poseInput, type FighterView } from './arenaView'
+import { ZoneHits } from './ZoneHits'
 import { applyPose, type JointName, type Limb, type Reg } from './rigPose'
 import { BASE_X, CHEST_C, FORE, HEAD_R, HEAD_UP, HIP_Y, HIP_Z, NECK_UP, SHIN, SHOULDER_UP, SHOULDER_Z, THIGH, UPPER, WAIST, aimPoint, computePose } from './pose'
 
@@ -95,6 +96,7 @@ export function Fighter3D({ side, view, settled }: Props) {
 
   return (
     <group ref={reg('root')} position={[-dir * BASE_X, 0, 0]}>
+      <ZoneHits view={view} />
       <group rotation-y={side === 'enemy' ? Math.PI : 0}>
         <group ref={reg('tilt')}>
           <group ref={reg('pelvis')} position={[0, HIP_Y, 0]}>

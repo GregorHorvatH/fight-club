@@ -3,9 +3,8 @@ import { bindKeys } from './input'
 import { loadArenas } from './state/arenas'
 import { useGame } from './state/game'
 import { Arena } from './ui/Arena'
-import { Controls } from './ui/Controls'
+import { Dock } from './ui/Controls'
 import { Hud } from './ui/Hud'
-import { Log } from './ui/Log'
 import { End, Title } from './ui/Screens'
 
 /** How long a round is shown before the next one (Enter skips it). A knockout lingers a little longer. */
@@ -28,10 +27,9 @@ export default function App() {
 
   return (
     <main className="app">
-      <Hud />
       <Arena />
-      <Controls />
-      <Log />
+      <Hud />
+      <Dock />
       {phase === 'title' && <Title />}
       {phase === 'over' && <End />}
     </main>

@@ -11,6 +11,7 @@ import {
 } from './pose'
 import { buildRig, poseRig, type Orient, type Rig } from './rig'
 import { applyPose, type JointName, type Limb, type Reg } from './rigPose'
+import { ZoneHits } from './ZoneHits'
 import { addZoneAttribute, applyZoneFx, createHalo, createZoneFx, setZone, skinnedMeshes, tidyMaterial, writeStencil, type ZoneFx } from './zoneFx'
 
 /** The characters: the left fighter and the right one (optimised Mixamo models, see scripts/prepare-models.mjs). */
@@ -234,6 +235,7 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
 
   return (
     <group ref={reg('root')} position={[-dir * BASE_X, 0, 0]}>
+      <ZoneHits view={view} scale={HEIGHT[side]} />
       <group ref={reg('facing')} rotation-y={side === 'enemy' ? Math.PI : 0}>
         {/* the invisible driver skeleton: empty groups, the pose is applied to them */}
         <group ref={reg('tilt')}>

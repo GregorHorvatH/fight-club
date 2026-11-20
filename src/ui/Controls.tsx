@@ -1,119 +1,83 @@
-import { useGame } from '../state/game'
-import { keyFor, keyLabel, LOCK_KEY } from '../input'
-import { WEAPONS, ZONES, type Side, type Weapon } from '../sim'
-import { NAMES } from './names'
+import { turnOf, useGame } from '../state/game'
+import { buttonKey } from '../input'
+import type { Side, Weapon } from '../sim'
+import { Hint } from './Log'
+import { STEP_TEXT, stepOf } from './steps'
 
-const WEAPON_LABEL: Record<Weapon, string> = { hand: '✊ Hand', foot: '🦶 Foot' }
+const WEAPON_LABEL: Record<Weapon, string> = { hand: 'Punch', foot: 'Kick' }
+const WEAPON_ICON: Record<Weapon, string> = { hand: '✊', foot: '🦶' }
 const WEAPON_HINT: Record<Weapon, string> = {
   hand: 'Punch: steady damage.',
   foot: 'Kick: 1.4x the damage, but if it is guarded you stumble and lose 7 health.',
 }
 
-function Strike({ side }: { side: Side }) {
+/** What to strike with: a punch or a kick. A column of two buttons that stands behind James's back. */
+function WeaponButtons({ side }: { side: Side }) {
   const c = useGame((s) => s.choice[side])
   const phase = useGame((s) => s.phase)
-  const pickAttack = useGame((s) => s.pickAttack)
   const setWeapon = useGame((s) => s.setWeapon)
-  const disabled = phase !== 'choose' || c.locked
-  const shown = !c.locked // once locked in, the picks are not shown: the other player is looking at the same screen
   return (
-    <section className="picker attack" aria-label="Strike">
-      <h2>Strike</h2>
-      <div className="weapons" role="radiogroup" aria-label="Strike with">
-        {WEAPONS.map((w) => (
-          <button key={w} role="radio" aria-checked={shown && c.weapon === w} title={WEAPON_HINT[w]} className={`weapon${shown && c.weapon === w ? ' on' : ''}`} disabled={disabled} onClick={() => setWeapon(side, w)}>
-            {WEAPON_LABEL[w]}
-          </button>
-        ))}
-      </div>
-      <div className="zones">
-        {ZONES.map((z) => (
-          <button key={z} className={`zone-btn${shown && c.attack === z ? ' on' : ''}`} disabled={disabled} aria-pressed={shown && c.attack === z} onClick={() => pickAttack(side, z)}>
-            <span className="z">{z}</span>
-            <kbd>{keyFor(side, 'attack', z, c.weapon)}</kbd>
-          </button>
-        ))}
-      </div>
-    </section>
+    <>
+      {(['hand', 'foot'] as const).map((w) => (
+        <button key={w} className={`weapon${c.weapon === w ? ' on' : ''}`} disabled={phase !== 'choose'} aria-pressed={c.weapon === w} title={WEAPON_HINT[w]} onClick={() => setWeapon(side, w)}>
+          <i aria-hidden="true">{WEAPON_ICON[w]}</i>
+          <span>{WEAPON_LABEL[w]}</span>
+          <kbd>{buttonKey(side, w === 'hand' ? 'punch' : 'kick')}</kbd>
+        </button>
+      ))}
+    </>
   )
 }
 
-function Guard({ side }: { side: Side }) {
+/**
+ * The button that goes on, behind Amy's back: it says what is still missing, then "Fight!" (or "Lock in" for the first of two
+ * people); while a round is replayed it is "Next", which skips the replay.
+ */
+function GoButton({ side }: { side: Side }) {
   const c = useGame((s) => s.choice[side])
-  const phase = useGame((s) => s.phase)
-  const pickBlock = useGame((s) => s.pickBlock)
-  const disabled = phase !== 'choose' || c.locked
-  const shown = !c.locked
-  return (
-    <section className="picker block" aria-label="Guard">
-      <h2>Guard</h2>
-      <div className="zones">
-        {ZONES.map((z) => (
-          <button key={z} className={`zone-btn${shown && c.block === z ? ' on' : ''}`} disabled={disabled} aria-pressed={shown && c.block === z} onClick={() => pickBlock(side, z)}>
-            <span className="z">{z}</span>
-            <kbd>{keyFor(side, 'block', z)}</kbd>
-          </button>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-/** One player's half of the two-player screen: both pickers and a lock-in button. */
-function Player({ side }: { side: Side }) {
-  const c = useGame((s) => s.choice[side])
-  const phase = useGame((s) => s.phase)
-  const lock = useGame((s) => s.lock)
-  const ready = c.attack !== null && c.block !== null
-  return (
-    <div className={`player-card ${side}${c.locked ? ' locked' : ''}`}>
-      <h3>
-        {NAMES.duo[side]} <small>Player {side === 'player' ? 1 : 2}</small>
-      </h3>
-      <div className="pair">
-        <Guard side={side} />
-        <Strike side={side} />
-      </div>
-      <button className="go lock" onClick={() => lock(side)} disabled={phase !== 'choose' || (!ready && !c.locked)}>
-        {c.locked ? 'Locked in ✓ (undo)' : 'Lock in'} <kbd>{keyLabel(LOCK_KEY[side])}</kbd>
-      </button>
-    </div>
-  )
-}
-
-export function Controls() {
   const phase = useGame((s) => s.phase)
   const mode = useGame((s) => s.mode)
-  const choice = useGame((s) => s.choice.player)
   const lock = useGame((s) => s.lock)
   const next = useGame((s) => s.next)
-
-  if (mode === 'duo' && phase !== 'title') {
+  if (phase === 'reveal') {
     return (
-      <div className="controls duo">
-        <Player side="player" />
-        <Player side="enemy" />
-        {phase === 'reveal' && (
-          <button className="go next" onClick={next}>
-            Next <kbd>Enter</kbd>
-          </button>
-        )}
-      </div>
+      <button className="go" onClick={next}>
+        <span>Next</span>
+        <kbd>Enter</kbd>
+      </button>
     )
   }
+  const step = stepOf(c)
+  const waiting = phase === 'choose' && step !== 'ready'
+  const first = mode === 'duo' && side === 'player' // the first of two people only locks in; the second one starts the round
   return (
-    <div className="controls">
-      <Guard side="player" />
-      {phase === 'reveal' ? (
-        <button className="go" onClick={next}>
-          Next <kbd>Enter</kbd>
-        </button>
-      ) : (
-        <button className="go" onClick={() => lock('player')} disabled={phase !== 'choose' || choice.attack === null || choice.block === null}>
-          Fight! <kbd>Enter</kbd>
-        </button>
-      )}
-      <Strike side="player" />
+    <button className={`go${waiting ? ' wait' : ''}`} onClick={() => lock(side)} disabled={phase !== 'choose' || waiting}>
+      <span>{waiting ? STEP_TEXT[step] : first ? 'Lock in' : 'Fight!'}</span>
+      <kbd>{mode === 'solo' ? 'Enter' : buttonKey(side, 'fight')}</kbd>
+    </button>
+  )
+}
+
+/**
+ * The buttons on the field, at the edges of the screen, each on the side of its fighter: the punch and the kick on James's side
+ * (on the left), the one that goes on on Amy's (on the right). Between two people they are those of the one whose turn it is.
+ */
+export function Sides() {
+  const turn = useGame((s) => turnOf(s.choice, s.mode))
+  return (
+    <div className="sides">
+      <div className="side left">
+        <WeaponButtons key={turn} side={turn} />
+      </div>
+      <div className="side right">
+        <GoButton key={turn} side={turn} />
+      </div>
     </div>
   )
+}
+
+/** The bottom of the field, under the fighters: the hint. */
+export function Dock() {
+  const phase = useGame((s) => s.phase)
+  return <div className="dock">{phase !== 'reveal' && <Hint />}</div>
 }

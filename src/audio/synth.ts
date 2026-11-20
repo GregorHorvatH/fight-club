@@ -1,7 +1,7 @@
 /** Every sound is synthesised with the Web Audio API: there are no audio files. */
 import { useSettings } from '../state/settings'
 
-export type Sound = 'select' | 'hit' | 'kick' | 'whoosh' | 'crit' | 'block' | 'stumble' | 'win' | 'lose'
+export type Sound = 'select' | 'bell' | 'hit' | 'kick' | 'whoosh' | 'crit' | 'block' | 'stumble' | 'win' | 'lose'
 
 let ctx: AudioContext | null = null
 let noise: AudioBuffer | null = null
@@ -77,6 +77,11 @@ function whoosh(c: AudioContext, f0: number, f1: number, dur: number, gain: numb
 }
 
 const SOUNDS: Record<Sound, (c: AudioContext) => void> = {
+  // the bell that starts a fight: a bright, ringing strike with a long tail
+  bell: (c) => {
+    for (const [f, g] of [[880, 0.22], [1320, 0.12], [2210, 0.07]] as const) tone(c, 'sine', f, f * 0.995, 1.3, g)
+    burst(c, 5000, 0.05, 0.12)
+  },
   select: (c) => tone(c, 'square', 520, 760, 0.05, 0.04),
   hit: (c) => {
     burst(c, 1800, 0.12, 0.35)

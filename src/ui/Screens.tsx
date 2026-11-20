@@ -2,7 +2,8 @@ import { arenaUrl, NO_ARENA, pickArena, useArenas } from '../state/arenas'
 import { useGame } from '../state/game'
 import { useBest } from '../state/best'
 import { useSettings } from '../state/settings'
-import { DIFFICULTIES, type Difficulty } from '../sim'
+import { buttonKey, zoneKey } from '../input'
+import { DIFFICULTIES, type Difficulty, type Side } from '../sim'
 import { NAMES } from './names'
 
 const BLURB: Record<Difficulty, string> = {
@@ -46,9 +47,34 @@ function ArenaPicker() {
   )
 }
 
+/** The nine keys of a player, drawn like the screen: the guard figure, the three buttons, the strike figure. */
+function KeyGrid({ side, label }: { side: Side; label?: string }) {
+  const rows = [['head', 'Head', 'punch', '✊'], ['body', 'Body', 'kick', '🦶'], ['legs', 'Legs', 'fight', '▶']] as const
+  return (
+    <div className="kgrid">
+      {label && <b className={`kname ${side}`}>{label}</b>}
+      <span className="kh guard">Guard</span>
+      <span />
+      <span className="kh strike">Strike</span>
+      <span />
+      {rows.map(([zone, name, button, icon]) => (
+        <div key={zone} className="krow">
+          <kbd title={`guard the ${name.toLowerCase()}`}>{zoneKey(side, 'guard', zone)}</kbd>
+          <span className="kmid">
+            <i aria-hidden="true">{icon}</i>
+            <kbd>{buttonKey(side, button)}</kbd>
+          </span>
+          <kbd title={`strike the ${name.toLowerCase()}`}>{zoneKey(side, 'strike', zone)}</kbd>
+          <span className="kz">{name}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function Title() {
   const start = useGame((s) => s.start)
-  const { difficulty, mode, view, setDifficulty, setMode, toggleView } = useSettings()
+  const { difficulty, mode, view, setDifficulty, setMode, setView } = useSettings()
   return (
     <div className="screen" role="dialog" aria-label="Fight Club">
       <h1>Fight Club</h1>
@@ -58,7 +84,7 @@ export function Title() {
       </p>
       <ul className="rules">
         <li>
-          Strike with a <b>hand</b> (steady) or a <b>foot</b> (1.4x damage, but a guarded kick makes you stumble: -7 health).
+          <b>Punch</b> (steady) or <b>kick</b> (1.4x damage, but a guarded kick makes you stumble: -7 health).
         </li>
         <li>Strikes land at the same time. Both can fall in one round: a draw.</li>
         <li>Landing strikes in a row builds a combo. An unguarded strike may be a critical hit (double damage).</li>
@@ -86,34 +112,37 @@ export function Title() {
         </>
       ) : (
         <p className="blurb">
-          Two people, one screen. Each of you picks and locks in; the picks are hidden once you do, so look away while the other chooses.
+          Two people, one screen, one after the other: James picks and locks in (his picks disappear at once), then Amy picks and fights.
+          Look away while the other one chooses.
         </p>
       )}
       <ArenaPicker />
-      <div className="choose-row">
-        <button className={view === '3d' ? 'on' : ''} onClick={toggleView} aria-pressed={view === '3d'}>
-          3D view <kbd>V</kbd>
+      <div className="choose-row" role="radiogroup" aria-label="View">
+        <button role="radio" aria-checked={view === '2d'} className={view === '2d' ? 'on' : ''} onClick={() => setView('2d')}>
+          2D
         </button>
+        <button role="radio" aria-checked={view === '3d'} className={view === '3d' ? 'on' : ''} onClick={() => setView('3d')}>
+          3D
+        </button>
+        <kbd title="V toggles">V</kbd>
       </div>
 
       <button className="go big" onClick={start} autoFocus>
         Start <kbd>Enter</kbd>
       </button>
       {mode === 'solo' && <Record />}
-      {mode === 'solo' ? (
-        <p className="keys">
-          <kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> punch head / body / legs · <kbd>Z</kbd> <kbd>X</kbd> <kbd>C</kbd> kick · <kbd>A</kbd> <kbd>S</kbd>{' '}
-          <kbd>D</kbd> guard · <kbd>M</kbd> mute
-        </p>
-      ) : (
-        <p className="keys">
-          Player 1: <kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> punch · <kbd>Z</kbd> <kbd>X</kbd> <kbd>C</kbd> kick · <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> guard ·{' '}
-          <kbd>Space</kbd> lock in
-          <br />
-          Player 2: <kbd>I</kbd> <kbd>O</kbd> <kbd>P</kbd> punch · <kbd>,</kbd> <kbd>.</kbd> <kbd>/</kbd> kick · <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> guard ·{' '}
-          <kbd>Enter</kbd> lock in
-        </p>
-      )}
+      <div className="keymap" aria-label="Keys">
+        {mode === 'solo' ? <KeyGrid side="player" /> : (
+          <>
+            <KeyGrid side="player" label="James" />
+            <KeyGrid side="enemy" label="Amy" />
+          </>
+        )}
+      </div>
+      <p className="keys">
+        Tap {mode === 'solo' ? 'James' : 'yourself'} to guard a zone and {mode === 'solo' ? 'Amy' : 'the other fighter'} to strike one, choose ✊ or 🦶, then ▶ (or{' '}
+        <kbd>Enter</kbd>) · <kbd>M</kbd> mute
+      </p>
     </div>
   )
 }

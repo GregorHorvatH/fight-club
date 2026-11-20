@@ -1,33 +1,45 @@
 import { Canvas, useFrame } from '@react-three/fiber'
+import { Vector3, type PerspectiveCamera } from 'three'
 import { Component, Suspense, type ReactNode } from 'react'
 import { Fighter3D } from './Fighter3D'
 import type { Stage } from './arenaView'
 import { ModelFighter3D } from './ModelFighter3D'
 import type { FighterView } from './arenaView'
 import { useGame } from '../state/game'
+import { FOV, isNarrow, viewFor } from './camera'
 
-/**
- * The two views of the ring. Close: the fighters fill the frame. Far (in front of an arena picture): the camera is pulled back so
- * that they are under half the height of the frame and the arena looks as big as it is; their feet are at the same place on screen.
- */
-const FOV = 32
-const VIEW = {
-  close: { position: [0, 2.1, 8.6], look: 1.7 },
-  far: { position: [0, 3.2, 11.2], look: 2.18 },
-} as const
-/** The camera for a view, with the fighters moved down the frame by `stand` of its height (the camera goes up by as much). */
-function viewFor(backdrop: boolean, stand: number): { position: [number, number, number]; look: number } {
-  const v = VIEW[backdrop ? 'far' : 'close']
-  const shift = backdrop ? stand * 2 * v.position[2] * Math.tan((FOV * Math.PI) / 360) : 0
-  return { position: [v.position[0], v.position[1] + shift, v.position[2]], look: v.look + shift }
+/** The camera drifts slowly from side to side, always looking at the middle of the ring; it follows the shape of the window. */
+function CameraRig({ backdrop, stand, fixed, floor }: { backdrop: boolean; stand: number; fixed: boolean; floor: number | null }) {
+  useFrame(({ camera, clock, size }) => {
+    const feetUp = floor === null ? undefined : floor / size.height
+    const v = viewFor(backdrop, stand, size.width / size.height, feetUp)
+    const narrow = isNarrow(backdrop, v)
+    let y = v.position[1]
+    let look = v.look
+    camera.position.set(fixed ? camera.position.x : Math.sin(clock.elapsedTime * 0.25) * (narrow ? 0.25 : 0.8), y, v.position[2])
+    camera.lookAt(0, look, 0)
+    if (narrow && feetUp !== undefined) {
+      // the camera looks slightly down, so a flat formula puts the feet a little off: put them exactly where they were asked to be
+      // (the point where the fighters stand, projected on the screen, is moved to the height wanted; two steps are plenty)
+      const visible = 2 * v.position[2] * Math.tan((camera as PerspectiveCamera).fov * Math.PI / 360)
+      for (let i = 0; i < 2; i++) {
+        camera.updateMatrixWorld()
+        const feet = new Vector3(0, 0, 0).project(camera).y // -1 (bottom) .. 1 (top)
+        const wanted = feetUp * 2 - 1
+        const dy = ((feet - wanted) / 2) * visible
+        y += dy
+        look += dy
+        camera.position.y = y
+        camera.lookAt(0, look, 0)
+      }
+    }
+  })
+  return null
 }
 
-/** The camera drifts slowly from side to side, always looking at the middle of the ring. */
-function CameraRig({ look, fixed }: { look: number; fixed: boolean }) {
-  useFrame(({ camera, clock }) => {
-    if (!fixed) camera.position.x = Math.sin(clock.elapsedTime * 0.25) * 0.8
-    camera.lookAt(0, look, 0)
-  })
+/** The poster page: the camera is where it was told to be and does not move. */
+function FixedCamera({ look }: { look: number }) {
+  useFrame(({ camera }) => camera.lookAt(0, look, 0))
   return null
 }
 
@@ -53,10 +65,12 @@ interface Props {
   stand: number
   /** a staged scene (the poster page only): the fighters are frozen in a pose and look at the camera */
   stage?: Stage
+  /** a tall window: the height of the floor in px above the bottom of the arena (measured from the buttons) */
+  floor?: number | null
 }
 
 /** The 3D arena (React Three Fiber). Same game, same rules: only the way it is drawn differs. */
-export default function Arena3D({ player, enemy, sceneKey, backdrop, stand, stage }: Props) {
+export default function Arena3D({ player, enemy, sceneKey, backdrop, stand, stage, floor }: Props) {
   const view = stage?.camera ?? viewFor(backdrop, stand)
   const over = useGame((s) => s.phase === 'over')
   return (
@@ -87,7 +101,7 @@ export default function Arena3D({ player, enemy, sceneKey, backdrop, stand, stag
             </ModelBoundary>
           )
         })}
-        <CameraRig look={view.look} fixed={stage !== undefined} />
+        {stage?.camera ? <FixedCamera look={stage.camera.look} /> : <CameraRig backdrop={backdrop} stand={stand} fixed={stage !== undefined} floor={floor ?? null} />}
       </Canvas>
     </div>
   )

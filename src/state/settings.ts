@@ -16,6 +16,7 @@ interface Settings {
   setDifficulty: (d: Difficulty) => void
   setMode: (m: Mode) => void
   toggleView: () => void
+  setView: (v: View) => void
   setArena: (id: string) => void
 }
 
@@ -54,6 +55,7 @@ export const useSettings = create<Settings>((set, get) => {
     setDifficulty: (difficulty) => change({ difficulty }),
     setMode: (mode) => change({ mode }),
     toggleView: () => change({ view: get().view === '2d' ? '3d' : '2d' }),
+    setView: (view) => change({ view }),
     setArena: (arena) => change({ arena }),
   }
 })

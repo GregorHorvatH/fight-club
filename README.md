@@ -17,10 +17,16 @@ Whoever runs out of health first loses.
   tend to strike and strikes where you tend not to guard. *Hard* does the same but almost always takes the likeliest zone.
   The smarter enemies also pick the weapon: they kick when they expect the zone to be open. It only ever looks at your past
   rounds, never at the move you are choosing now.
-- **Two players on one screen.** Choose "2 players" on the title screen. Each of you picks a strike (zone and weapon) and a
-  guard, then **locks in**; the round starts when both have. Picks are hidden as soon as you lock in (and the arena shows no
-  crosshair or shield), so look away while the other one chooses. A lock can be taken back until the other player locks in.
-  A duel between two people does not count toward your record.
+- **Everything is on the field.** The arena fills the window. You choose by **tapping the fighters**: a tap on James picks the zone to guard,
+  a tap on Amy the zone to strike (the zone lights up under the pointer first). The punch and the kick are two buttons at the left edge
+  (James's side), the one that starts the fight at the right edge (Amy's). The hint is under the fighters; each fighter's last three
+  strikes are listed behind them at the top, the older ones fading away.
+- **A short intro** (2.3 s) opens every match: the names slide in, "VS" slams down between the fighters and is gone, then "FIGHT!"
+  and a bell. Nothing stays on the arena afterwards. It does not block the controls.
+- **Two players on one screen, one after the other.** James (the left fighter) chooses first: tap himself to guard, Amy to strike, a punch or a
+  kick, **Lock in** - and his picks disappear at once. Then it is Amy's turn (she taps herself to guard and James to strike) and her
+  **Fight!** starts the round. The hint says whose turn it is and asks the other one to look away. A duel between two people does not
+  count toward your record.
 - **Jointed fighters, aimed strikes.** Both views draw the same skeleton: pelvis, waist, neck, shoulders, elbows, hips, knees
   and ankles. Every strike goes to the zone you chose: at the moment of contact the fist or the foot is solved (two-link
   inverse kinematics) to reach that zone of the opponent's body, wherever the opponent's head, chest or shin is at that moment,
@@ -89,21 +95,26 @@ pnpm build      # static site in dist/
 
 ## Controls
 
+Mouse or touch: tap a fighter to choose a zone (see above), then the punch / kick buttons and the fight button. With the keyboard, the nine
+keys of a player are laid out like the old picture, left to right and top to bottom (the label on a key never changes):
+
+| | Guard zone | Buttons | Strike zone |
+|---|---|---|---|
+| **top** | `Q` head | `W` punch | `E` head |
+| **middle** | `A` body | `S` kick | `D` body |
+| **bottom** | `Z` legs | `X` fight | `C` legs |
+
 | Input | Action |
 |---|---|
-| `Q` `W` `E` | punch the head / body / legs |
-| `Z` `X` `C` | kick the head / body / legs |
-| `A` `S` `D` | guard the head / body / legs |
-| `Enter` / `Space` | fight (1 player), skip the replay, start, play again |
+| `Enter` / `Space` | confirm for whoever is choosing (fight, lock in), skip the replay, start, play again |
 | `1` `2` `3` | difficulty (title screen) |
 | `P` | 1 or 2 players (title screen) |
-| `V` | 2D / 3D view |
+| `V` | 2D / 3D view (also two buttons on the title screen) |
 | `B` | the next arena (title screen) |
 | `M` | mute |
-| touch / mouse | the on-screen buttons (Hand / Foot toggle, zone buttons) |
 
-Two players: **player 1** uses the keys above and `Space` to lock in; **player 2** uses `I` `O` `P` (punch), `,` `.` `/` (kick),
-`J` `K` `L` (guard) and `Enter` to lock in.
+Between two people the second player's keys are `I` `J` `,` (guard head / body / legs), `O` `K` `.` (punch, kick, fight) and `P` `L` `/` (strike
+head / body / legs). Only the keys of the one whose turn it is do anything.
 
 ## How it is organised
 

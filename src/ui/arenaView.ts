@@ -1,5 +1,5 @@
 import { opponent, type Side, type Weapon, type Zone } from '../sim'
-import { useGame } from '../state/game'
+import { turnOf, useGame } from '../state/game'
 import type { PoseInput } from './pose'
 
 export interface Incoming {
@@ -32,11 +32,15 @@ export interface FighterView {
   won: boolean
   /** floating labels ("-12", "BLOCK", "STUMBLE -7") */
   labels: Label[]
+  /** while choosing: a tap on a zone of this fighter picks it (to guard, on the fighter of whoever is choosing; to strike, on the other) */
+  pick?: (zone: Zone) => void
+  /** the pointer is over / left a zone of this fighter (a preview of the pick) */
+  over?: (zone: Zone | null) => void
 }
 
 /** Reads the game and works out how one fighter looks right now. */
 export function useFighterView(side: Side): FighterView {
-  const { phase, mode, match, choice, last } = useGame()
+  const { phase, mode, match, choice, last, hover, tap, setHover } = useGame()
   const other = opponent(side)
   const reveal = phase === 'reveal' || phase === 'over' ? last : null
   const labels: Label[] = []
@@ -49,15 +53,19 @@ export function useFighterView(side: Side): FighterView {
     )
     const stumble = reveal.strikes[side].recoil
     if (stumble) labels.push({ text: `STUMBLE -${stumble}`, kind: 'stumble' })
-  } else if (phase === 'choose' && mode === 'duo' && choice[side].locked) {
-    labels.push({ text: 'READY', kind: 'ready' })
   }
-  // in solo mode your own picks are shown on the arena; between two people on one screen they would give you away
-  const peek = phase === 'choose' && mode === 'solo'
+  // the picks of the one who is choosing are shown on the field: the guard on their own fighter, the strike on the other. Between
+  // two people nobody else's picks are ever shown (the other one is looking at the same screen).
+  const choosing = phase === 'choose'
+  const me = turnOf(choice, mode)
+  // while the pointer is over a zone of a fighter, that zone is lit as a preview of what a tap would pick
+  const hovered = choosing && hover?.side === side ? hover.zone : null
   return {
-    shield: reveal ? reveal.moves[side].block : peek && side === 'player' ? choice.player.block : null,
+    pick: choosing ? (zone: Zone) => tap(side, zone) : undefined,
+    over: choosing ? (zone: Zone | null) => setHover(zone ? { side, zone } : null) : undefined,
+    shield: reveal ? reveal.moves[side].block : choosing && side === me ? (hovered ?? choice[me].block) : null,
     incoming: reveal ? { zone: reveal.strikes[other].zone, blocked: reveal.strikes[other].blocked } : null,
-    aim: peek && side === 'enemy' ? choice.player.attack : null,
+    aim: choosing && side !== me ? (hovered ?? choice[me].attack) : null,
     strike: reveal ? { zone: reveal.strikes[side].zone, weapon: reveal.strikes[side].weapon } : null,
     foe: reveal ? { zone: reveal.strikes[other].zone, weapon: reveal.strikes[other].weapon } : null,
     stumble: reveal !== null && reveal.strikes[side].recoil > 0,
