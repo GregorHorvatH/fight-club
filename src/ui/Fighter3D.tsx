@@ -66,7 +66,8 @@ export function Fighter3D({ side, view, settled }: Props) {
     // the struck zone flashes: white for a hit, blue for a guarded strike
     const color = view.incoming?.blocked ? blue : white
     for (const z of ['head', 'body', 'legs'] as const) {
-      const f = view.incoming?.zone === z ? P.flash : 0
+      const struck = view.incoming?.zone === z || (view.incoming?.also?.zone === z && !view.incoming.also.blocked)
+      const f = struck ? P.flash : 0
       for (const m of [mats[z], mats[`j${z}`]]) {
         m.emissive.copy(color)
         m.emissiveIntensity = f * 0.9
@@ -91,7 +92,8 @@ export function Fighter3D({ side, view, settled }: Props) {
       : view.aim
         ? { zone: view.aim, color: AIM_COLOR }
         : null
-  const lit = (zone: Zone): string | null => (glow?.zone === zone ? glow.color : null)
+  // a super strike that is being chosen has a second zone: it glows too
+  const lit = (zone: Zone): string | null => (glow?.zone === zone ? glow.color : !view.ko && !view.shield && view.aim2 === zone ? AIM_COLOR : null)
 
   return (
     <group ref={reg('root')} position={[-dir * BASE_X, 0, 0]}>

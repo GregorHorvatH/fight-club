@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { play, type Sound } from '../audio/synth'
-import { timelineOf } from '../timing'
-import { createMatch, playRound, resolveRound, type Match, type Move, type Rng, type RoundResult, type Side, type Weapon, type Zone } from '../sim'
+import { SUPER_GAP, timelineOf } from '../timing'
+import { createMatch, playRound, resolveRound, superReady, type Match, type Move, type Rng, type RoundResult, type Side, type Weapon, type Zone } from '../sim'
 import { useBest } from './best'
 import { isUnlocked, rivalOf, slotFighter, SLOTS, FIGHTERS, type FighterId } from './roster'
 import { useSettings, type Mode } from './settings'
@@ -9,8 +9,8 @@ import { useSettings, type Mode } from './settings'
 /** menu -> (about | setup -> select -> choose -> reveal -> (choose -> reveal)* -> over) and back to the menu */
 export type Phase = 'menu' | 'about' | 'setup' | 'select' | 'choose' | 'reveal' | 'over'
 
-/** The items of the pause window, top to bottom. Reset leaves the fight for the main menu. */
-export const PAUSE_ITEMS = ['continue', 'reset'] as const
+/** The items of the pause window, top to bottom: go on, the round again (from its start), or leave the fight for the main menu. */
+export const PAUSE_ITEMS = ['continue', 'again', 'menu'] as const
 export type PauseItem = (typeof PAUSE_ITEMS)[number]
 
 /** The items under the settings of the setup screen, top to bottom. */
@@ -24,15 +24,29 @@ export type EndItem = (typeof END_ITEMS)[number]
 /** What one player has picked so far for the coming round. */
 export interface Choice {
   attack: Zone | null
+  /** a super strike hits a second zone as well, of the player's own choice (null until chosen; unused for a punch and a kick) */
+  attack2: Zone | null
   weapon: Weapon
   block: Zone | null
   /** two-player mode: this player is ready (the round starts when both are) */
   locked: boolean
 }
 
-const blank = (): Choice => ({ attack: null, weapon: 'hand', block: null, locked: false })
+const blank = (): Choice => ({ attack: null, attack2: null, weapon: 'hand', block: null, locked: false })
 const fresh = (): Record<Side, Choice> => ({ player: blank(), enemy: blank() })
-export const complete = (c: Choice): boolean => c.attack !== null && c.block !== null
+export const complete = (c: Choice): boolean => c.attack !== null && c.block !== null && (c.weapon !== 'super' || c.attack2 !== null)
+
+/**
+ * A tap (or a key) on a zone of the enemy, for a super strike, which hits two: it is chosen, or (when it is already) taken away again;
+ * with two chosen already, the new one replaces the one that was chosen first.
+ */
+export function toggleZone(c: Pick<Choice, 'attack' | 'attack2'>, zone: Zone): Pick<Choice, 'attack' | 'attack2'> {
+  if (c.attack === zone) return { attack: c.attack2, attack2: null }
+  if (c.attack2 === zone) return { attack: c.attack, attack2: null }
+  if (c.attack === null) return { attack: zone, attack2: null }
+  if (c.attack2 === null) return { attack: c.attack, attack2: zone }
+  return { attack: c.attack2, attack2: zone }
+}
 
 /**
  * Whose turn it is to choose. Alone it is always yours (the left fighter). Between two people they choose one after the other: the
@@ -51,8 +65,12 @@ interface Game {
   matchId: number
   /** the zone of a fighter the pointer is over (while choosing): it lights up as a preview of the pick */
   hover: { side: Side; zone: Zone } | null
-  /** the fight is paused: a window with Continue and Reset is up and nothing can be chosen */
+  /** the fight is paused: a window with Continue, Fight again and Back to main menu is up and nothing can be chosen */
   paused: boolean
+  /** the match as it was before the round that is being replayed (what "Fight again" goes back to) */
+  before: Match | null
+  /** the round starts over: the picks are cleared, and a round that has been fought is taken back (its blows never happened) */
+  restartRound: () => void
   /** counts the replays started over after a pause: it restarts the animations and the counting of the strikes */
   replay: number
   pause: () => void
@@ -63,7 +81,7 @@ interface Game {
   /** move the cursor of the pause window by `step` items (wraps around) */
   movePause: (step: number) => void
   pointPause: (item: PauseItem) => void
-  /** choose the item under the cursor (or `item`): Continue, or Reset, which leaves the fight for the main menu */
+  /** choose the item under the cursor (or `item`): Continue, Fight again (the round starts over) or Back to main menu */
   choosePause: (item?: PauseItem) => void
   /** the main menu: leave whatever is on screen */
   toMenu: () => void
@@ -133,10 +151,17 @@ function scheduleSounds(result: RoundResult): void {
   for (const side of tl.order) {
     const s = result.strikes[side]!
     const hit = tl.hitAt[side]! * 1000
-    if (s.crit) at(hit, 'crit')
+    if (s.weapon === 'super') {
+      at(hit - 240, 'whoosh') // the way in
+      // the two parts: each connects at its own moment, and is a blow (a big one) or a guard
+      for (const [part, delay] of [[s, 0], [s.extra!, SUPER_GAP]] as const) {
+        if (!part.blocked) at(hit + delay * 1000, 'super')
+        else at(hit + delay * 1000 + 30, 'block')
+      }
+    } else if (s.crit) at(hit, 'crit')
     else if (!s.blocked) at(s.weapon === 'foot' ? hit - 90 : hit, s.weapon === 'foot' ? 'kick' : 'hit') // the thud of the kick sound is 90 ms into it
     if (s.blocked && s.weapon === 'foot') at(hit - 130, 'whoosh') // a guarded kick: you hear the swing, then the guard
-    if (s.blocked) at(hit + 30, 'block')
+    if (s.blocked && s.weapon !== 'super') at(hit + 30, 'block')
     if (s.recoil) at(hit + 250, 'stumble')
   }
 }
@@ -154,7 +179,7 @@ export const useGame = create<Game>((set, get) => {
     return phase === 'choose' && !get().paused && !choice[side].locked && (mode === 'solo' || side === turnOf(choice, mode))
   }
   const update = (side: Side, patch: Partial<Choice>) => set({ choice: { ...get().choice, [side]: { ...get().choice[side], ...patch } } })
-  const moveOf = (c: Choice): Move => ({ attack: c.attack!, weapon: c.weapon, block: c.block! })
+  const moveOf = (c: Choice): Move => ({ attack: c.attack!, weapon: c.weapon, block: c.block!, ...(c.weapon === 'super' ? { attack2: c.attack2! } : {}) })
 
   function fight(): void {
     const { match, choice, mode } = get()
@@ -163,7 +188,7 @@ export const useGame = create<Game>((set, get) => {
         ? playRound(match, moveOf(choice.player), random)
         : resolveRound(match, { player: moveOf(choice.player), enemy: moveOf(choice.enemy) }, random)
     scheduleSounds(result)
-    set({ phase: 'reveal', match: next, last: result, hover: null })
+    set({ phase: 'reveal', match: next, last: result, hover: null, before: match })
   }
 
   return {
@@ -210,7 +235,18 @@ export const useGame = create<Game>((set, get) => {
       if (!get().paused) return
       play('select')
       if (item === 'continue') get().resume()
+      else if (item === 'again') get().restartRound()
       else get().toMenu()
+    },
+
+    before: null,
+
+    restartRound: () => {
+      const { phase, before } = get()
+      stopSounds()
+      // fought already (the replay is on): back to the match as it was before the round; not yet: just the picks are cleared
+      if (phase === 'reveal' && before) set({ phase: 'choose', match: before, choice: fresh(), last: null, hover: null, paused: false, before: null })
+      else if (phase === 'choose') set({ choice: fresh(), hover: null, paused: false })
     },
 
     toMenu: () => {
@@ -333,13 +369,18 @@ export const useGame = create<Game>((set, get) => {
     pickAttack: (side, zone, weapon) => {
       if (!editable(side)) return
       play('select')
-      update(side, weapon ? { attack: zone, weapon } : { attack: zone })
+      const now = get().choice[side]
+      const w = weapon ?? now.weapon
+      // a punch or a kick strikes one zone; a super strike two, which are chosen one after the other
+      update(side, w === 'super' ? { weapon: w, ...toggleZone(now, zone) } : { weapon: w, attack: zone, attack2: null })
     },
 
     setWeapon: (side, weapon) => {
       if (!editable(side)) return
+      if (weapon === 'super' && !superReady(get().match, side)) return // the meter is not full
       play('select')
-      update(side, { weapon })
+      // changing to a super strike keeps the zone chosen (it is the first of two); changing back strikes one zone again
+      update(side, weapon === 'super' ? { weapon } : { weapon, attack2: null })
     },
 
     pickBlock: (side, zone) => {

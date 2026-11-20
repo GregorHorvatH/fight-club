@@ -1,17 +1,21 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { turnOf, useGame } from '../state/game'
 import { hintMiddle, useLayout } from '../state/layout'
-import { buttonKey } from '../input'
-import type { Side, Weapon } from '../sim'
+import { buttonKey, superKey } from '../input'
+import { SUPER_METER, superReady, type Side, type Weapon } from '../sim'
+import { fighterOf } from '../state/roster'
 import { Hint } from './Log'
 import { STEP_TEXT, stepOf } from './steps'
 
-const WEAPON_LABEL: Record<Weapon, string> = { hand: 'Punch', foot: 'Kick' }
-const WEAPON_ICON: Record<Weapon, string> = { hand: '✊', foot: '🦶' }
+const WEAPON_LABEL: Record<Weapon, string> = { hand: 'Punch', foot: 'Kick', super: 'Super' }
+const WEAPON_ICON: Record<Weapon, string> = { hand: '✊', foot: '🦶', super: '✦' }
 const WEAPON_HINT: Record<Weapon, string> = {
   hand: 'Punch: fast, so it strikes before a kick. Steady damage.',
   foot: 'Kick: slow (a punch strikes first), 1.4x the damage, but if it is guarded you stumble and lose 7 health.',
+  super: 'Super strike: hits two zones of your choice at once (a guard covers only one), every part that lands is a critical hit, and it is the slowest strike of all. The meter fills when you land a blow or hold a guard.',
 }
+
+const WEAPON_KEY = (side: Side, w: Weapon): string => (w === 'super' ? superKey(side) : buttonKey(side, w === 'hand' ? 'punch' : 'kick'))
 
 /** What to strike with: a punch or a kick. A column of two buttons that stands behind James's back. */
 function WeaponButtons({ side }: { side: Side }) {
@@ -24,10 +28,40 @@ function WeaponButtons({ side }: { side: Side }) {
         <button key={w} className={`weapon${c.weapon === w ? ' on' : ''}`} disabled={phase !== 'choose'} aria-pressed={c.weapon === w} title={WEAPON_HINT[w]} onClick={() => setWeapon(side, w)}>
           <i aria-hidden="true">{WEAPON_ICON[w]}</i>
           <span>{WEAPON_LABEL[w]}</span>
-          <kbd>{buttonKey(side, w === 'hand' ? 'punch' : 'kick')}</kbd>
+          <kbd>{WEAPON_KEY(side, w)}</kbd>
         </button>
       ))}
     </>
+  )
+}
+
+/**
+ * The super strike: a button of its own, above the one that goes on, behind Amy's back. Its meter fills it like a gauge, and it glows
+ * when it is ready. It hits two zones of the enemy, which are chosen one after the other.
+ */
+function SuperButton({ side }: { side: Side }) {
+  const c = useGame((s) => s.choice[side])
+  const phase = useGame((s) => s.phase)
+  const setWeapon = useGame((s) => s.setWeapon)
+  const ready = useGame((s) => superReady(s.match, side))
+  // while a round is replayed the meter is the one from before it (what the round did to it shows after)
+  const meter = useGame((s) => (s.phase === 'reveal' && s.last ? s.last.meterBefore[side] : s.match.meter[side]))
+  const style = fighterOf(useGame((s) => s.fighters[side])).super
+  const on = c.weapon === 'super'
+  return (
+    <button
+      className={`weapon super${on ? ' on' : ''}${ready ? ' ready' : ''}`}
+      style={{ '--meter': `${Math.round((meter / SUPER_METER) * 100)}%` } as CSSProperties}
+      disabled={phase !== 'choose' || !ready}
+      aria-pressed={on}
+      title={`${style.name}: ${WEAPON_HINT.super}`}
+      // a second tap takes it back: the strike is a punch again
+      onClick={() => setWeapon(side, on ? 'hand' : 'super')}
+    >
+      <i aria-hidden="true">{WEAPON_ICON.super}</i>
+      <span>{style.name}</span>
+      <kbd>{superKey(side)}</kbd>
+    </button>
   )
 }
 
@@ -62,7 +96,7 @@ function GoButton({ side }: { side: Side }) {
 
 /**
  * The buttons on the field, at the edges of the screen, each on the side of its fighter: the punch and the kick on James's side
- * (on the left), the one that goes on on Amy's (on the right). Between two people they are those of the one whose turn it is.
+ * (on the left), the super strike above the one that goes on on Amy's (on the right). Between two people they are those of the one whose turn it is.
  */
 export function Sides() {
   const turn = useGame((s) => turnOf(s.choice, s.mode))
@@ -72,6 +106,7 @@ export function Sides() {
         <WeaponButtons key={turn} side={turn} />
       </div>
       <div className="side right">
+        <SuperButton key={turn} side={turn} />
         <GoButton key={turn} side={turn} />
       </div>
     </div>

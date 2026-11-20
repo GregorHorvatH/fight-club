@@ -20,7 +20,7 @@ const script =
 describe('resolveStrike (punch)', () => {
   it('a guarded strike does no damage and is never critical', () => {
     const s = resolveStrike('head', 'hand', 'head', 0, script(0.99, 0))
-    expect(s).toEqual({ zone: 'head', weapon: 'hand', blocked: true, crit: false, damage: 0, recoil: 0 })
+    expect(s).toEqual({ zone: 'head', weapon: 'hand', blocked: true, crit: false, damage: 0, recoil: 0, extra: null })
   })
 
   it('an unguarded strike lands: the roll maps onto the damage range', () => {

@@ -339,3 +339,11 @@ kbd {
 .tag.player { background: var(--player); } .tag.enemy { background: var(--enemy); }
 .pick-name { min-height: 1.6em; margin: 12px 0 0 !important; font-size: 1.3rem; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
 .select .items { margin-top: 6px; }
+
+/* ---- the super strike: a button whose meter fills it from the left; when it is ready it glows ---- */
+.weapon.super { background: linear-gradient(90deg, #8a6bff66 var(--meter, 0%), var(--panel-2) var(--meter, 0%)); border-color: #5b4a9a; }
+.weapon.super.ready { border-color: #b9a2ff; box-shadow: 0 0 14px #8a6bff88; animation: superGlow 1.4s ease-in-out infinite; }
+.weapon.super.on { border-color: #d9c9ff; background: linear-gradient(90deg, #8a6bffaa var(--meter, 0%), #3a2f66 var(--meter, 0%)); box-shadow: 0 0 0 1px #d9c9ff, 0 0 18px #8a6bffcc; }
+@keyframes superGlow { 50% { box-shadow: 0 0 22px #b9a2ffcc; } }
+.weapon.super span { min-width: 0; font-size: .78em; line-height: 1.1; overflow-wrap: anywhere; }
+.weapon.super.on { background: linear-gradient(90deg, #8a6bffaa var(--meter, 0%), #3a2f66 var(--meter, 0%)); }

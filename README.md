@@ -15,6 +15,14 @@ Whoever runs out of health first loses.
   punch before a kick. With the same weapon the **more wounded fighter** is quicker, and only when that is equal too does a coin decide.
   A **knockout ends the round**: the fighter who is down does not strike back, so a critical hit on the first strike can decide the
   match. There is **no draw**.
+- **Super strike** (✦, the button above the one that starts the fight, key `R` / `U`): you choose **two zones** of the opponent (tap them,
+  or press two strike keys; a third replaces the first), so a guard can cover only one of them and it can never be guarded altogether.
+  **Every part that is not guarded is a critical hit**: 0.6 x a punch x 2, so 1.2 punches for one part and 2.4 for both. It is the
+  **slowest** strike of all: a punch and a kick land before it, so a knockout stops it. How it is thrown depends on the fighter
+  (`super` in `src/state/roster.ts`): two blows, each a punch or a kick, perhaps in a leap or with a full turn of the body between them
+  (James flurries with his fists, Amy leaps with two kicks, Kachujin spins). Its meter (the button fills like a gauge) gains 25 when a
+  blow of yours lands, 25 when your guard holds and 10 when you are hurt; the strike needs 100 and empties it, so the button is grey until the meter is full. The
+  enemy throws one now and then when its own meter is full (not when it is nearly out of health).
 - **Combo:** every strike you land in a row makes the next one hit +2 harder (up to +8). A guarded strike resets it.
 - **Critical hits:** 15% of the strikes that are not guarded do double damage.
 - **The enemy learns.** *Easy* guesses blindly. *Normal* studies your habits (newer rounds count more) and guards where you
@@ -38,7 +46,7 @@ Whoever runs out of health first loses.
   and the two fighters close in just enough for each to reach. A strike has a wind-up, a lunge, a follow-through and a
   recovery; a kick chambers the knee first. The hit is reacted to by zone (the head snaps back, the body doubles over, the legs
   buckle), a guard brings the forearms (or the knee) up in front of the zone, a guarded kick makes the kicker stagger, a knockout
-  folds the knees and falls, the winner raises both fists. Sounds are timed to the moment of contact.
+  folds the knees and falls, the winner raises both fists and jumps for joy (the knees bend, the legs push off, the knees are drawn up in the air, and the landing is taken up by the knees). Sounds are timed to the moment of contact.
 - **2D or 3D.** The same game drawn two ways: flat SVG figures, or a 3D ring built with React Three Fiber (the fighters are made
   of primitives; a punch swings the near arm, a kick swings the near leg, the camera drifts). Switch any time with `V`.
   three.js is a lazy chunk (about 245 kB gzipped): it is downloaded only the first time you open the 3D view.
@@ -135,11 +143,12 @@ keys of a player are laid out like the old picture, left to right and top to bot
 | `Enter` / `Space` | confirm for whoever is choosing (fight, lock in), skip the replay, start, play again |
 | `↑` `↓` (or `W` `S`) | move the cursor in the main menu |
 | `1` `2` `3` | difficulty (setup screen, arcade) |
+| `R` / `U` | the super strike of player 1 / player 2 (also the ✦ button above Fight!); then two strike keys |
 | `V` | 2D / 3D view (also two buttons on the setup screen) |
 | `B` | the next arena (setup screen) |
 | arrows / `W` `A` `S` `D` | move over the tiles of the Select fighter screen; `Enter` chooses |
 | `Esc` | back (from Select fighter one step, from the about, setup and end screens to the menu) |
-| `Esc` in a fight | pause (also the ⏸ button in the header): `↑` `↓` and `Enter` choose Continue or Reset (= the main menu); `Esc` continues |
+| `Esc` in a fight | pause (also the ⏸ button in the header): `↑` `↓` and `Enter` choose Continue, Fight again (the round starts over: a round that was fought is taken back) or Back to main menu; `Esc` continues |
 | `M` | mute |
 
 Between two people the second player's keys are `I` `J` `,` (guard head / body / legs), `O` `K` `.` (punch, kick, fight) and `P` `L` `/` (strike

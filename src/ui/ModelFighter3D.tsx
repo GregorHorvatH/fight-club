@@ -7,6 +7,7 @@ import { useGame } from '../state/game'
 import { fighterOf } from '../state/roster'
 import { poseInput, type FighterView, type Stage } from './arenaView'
 import { buildOf, useBuilds } from '../state/builds'
+import { SUPER_GAP } from '../timing'
 import { BASE_X, BODY_DEPTH, CHEST_C, FIST, FORE, NECK_UP, SHOULDER_Z, UPPER, WAIST, aimPoint, computePose, heightOf, STANDARD, type Build } from './pose'
 import { buildRig, poseRig, type Orient, type Rig } from './rig'
 import { applyPose, type JointName, type Limb, type Reg } from './rigPose'
@@ -210,7 +211,7 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
     const t = stage ? stage.t : time.current
     const J = joints.current
     const { rig, fx, k } = model
-    const P = computePose(t, input(), stage ? 0 : state.clock.elapsedTime, phase)
+    const P = computePose(t, input(), stage ? (stage.clock ?? 0) : state.clock.elapsedTime, phase)
     applyPose(J, P, dir, near)
     J.ring!.position.y = 0.02 - P.y
     J.root!.updateMatrixWorld(true)
@@ -282,8 +283,12 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
     fx.time.value = state.clock.elapsedTime
     fx.flashColor.copy(view.incoming?.blocked ? blue : white)
     for (const z of ['head', 'body', 'legs'] as const) {
-      setZone(fx.flash, z, view.incoming?.zone === z ? P.flash : 0)
-      const lit = !view.ko && (view.shield === z || view.aim === z)
+      // the zone that was struck flashes, and so does the other part of a super strike (when it landed), SUPER_GAP later or earlier
+      const inc = view.incoming
+      const part = (blocked: boolean, delay: number): number => (blocked ? 0 : clamp01(1 - (t - view.times.hitAt - delay) / 0.45) * Number(t > view.times.hitAt + delay))
+      const flash = inc?.zone === z ? part(inc.blocked, inc.delay) : inc?.also?.zone === z ? part(inc.also.blocked, inc.delay === 0 ? SUPER_GAP : 0) : 0
+      setZone(fx.flash, z, inc?.zone === z && inc.blocked ? P.flash : flash)
+      const lit = !view.ko && (view.shield === z || view.aim === z || view.aim2 === z)
       setZone(fx.glow, z, lit ? 1 : 0)
     }
     fx.glowColor.copy(view.shield ? blue : gold)

@@ -1,4 +1,5 @@
 import type { Rng } from '../sim'
+import type { SuperStyle } from '../ui/pose'
 
 /**
  * The fighters a player can choose. Each one is a character (an optimised Mixamo model, see scripts/prepare-models.mjs) with its
@@ -18,13 +19,16 @@ export interface Fighter {
   hide?: readonly string[]
   /** the shoulders (the collar bones, and the armour or the clothes that hang from them) sit this much higher than the model's own, in figure units: for a high collar that would otherwise leave the neck bare */
   shoulders?: number
+  /** how it throws its super strike: two blows, each a punch or a kick, perhaps in a leap or with a turn between them */
+  super?: SuperStyle
 }
 
 /** Nothing can be unlocked yet (the tournament that unlocks fighters is not made), so everybody can be chosen. Turn off when it is made. */
 const ALL_UNLOCKED = true
 
-const fighter = <I extends string>(id: I, name: string, height = 1, starter = false, extra: { hide?: readonly string[]; shoulders?: number } = {}) => ({
+const fighter = <I extends string>(id: I, name: string, height = 1, starter = false, extra: { hide?: readonly string[]; shoulders?: number; super?: SuperStyle } = {}) => ({
   id, name, model: `models/${id}.glb`, portrait: `models/${id}.webp`, height, starter, hide: extra.hide ?? [], shoulders: extra.shoulders ?? 0,
+  super: extra.super ?? ({ name: 'Super strike', first: 'hand', second: 'hand' } satisfies SuperStyle),
 })
 
 /**
@@ -32,21 +36,21 @@ const fighter = <I extends string>(id: I, name: string, height = 1, starter = fa
  * tall the character stands next to the standard figure (1 = as tall), to be tuned by eye; its proportions are its own (measured).
  */
 export const FIGHTERS = [
-  fighter('james', 'James', 1.07, true),
-  fighter('amy', 'Amy', 0.95, true),
-  fighter('pete', 'Pete'),
-  fighter('brute', 'Brute', 1.08, false, { hide: ['BattleAxe'] }), // it comes with an axe in its hand: it fights with its fists
-  fighter('lola', 'Lola', 0.98),
-  fighter('kachujin', 'Kachujin'),
-  fighter('swat', 'Swat', 1.03),
-  fighter('akai', 'Akai'),
-  fighter('astra', 'Astra', 0.98),
-  fighter('maynard', 'Maynard', 1.05),
-  fighter('paladin', 'Paladin', 1.06),
-  fighter('dreyar', 'Dreyar', 1.04),
-  fighter('alien_soldier', 'Alien Soldier', 1.06),
-  fighter('exo_red', 'Exo Red', 1.04, false, { shoulders: 0.3 }), // a high collar of armour hugs its neck
-  fighter('vanguard', 'Vanguard', 1.1),
+  fighter('james', 'James', 1.07, true, { super: { name: 'Street Flurry', first: 'hand', second: 'hand' } }),
+  fighter('amy', 'Amy', 0.95, true, { super: { name: 'Bunny Kicks', first: 'foot', second: 'foot', leap: true } }),
+  fighter('pete', 'Pete', 1, false, { super: { name: 'Hard Hat Hammer', first: 'hand', second: 'hand' } }),
+  fighter('brute', 'Brute', 1.08, false, { hide: ['BattleAxe'], super: { name: 'Haymaker', first: 'hand', second: 'hand', leap: true } }), // it comes with an axe in its hand: it fights with its fists
+  fighter('lola', 'Lola', 0.98, false, { super: { name: 'Dragon Combo', first: 'hand', second: 'foot' } }),
+  fighter('kachujin', 'Kachujin', 1, false, { super: { name: 'Spinning Crane', first: 'hand', second: 'foot', spin: true } }),
+  fighter('swat', 'Swat', 1.03, false, { super: { name: 'Breach', first: 'foot', second: 'hand' } }),
+  fighter('akai', 'Akai', 1, false, { super: { name: 'Shadow Step', first: 'hand', second: 'foot', leap: true } }),
+  fighter('astra', 'Astra', 0.98, false, { super: { name: 'Nova Spin', first: 'foot', second: 'foot', spin: true } }),
+  fighter('maynard', 'Maynard', 1.05, false, { super: { name: 'Rend', first: 'hand', second: 'hand', spin: true } }),
+  fighter('paladin', 'Paladin', 1.06, false, { super: { name: 'Judgment', first: 'hand', second: 'hand', leap: true } }),
+  fighter('dreyar', 'Dreyar', 1.04, false, { super: { name: 'Dark Chain', first: 'hand', second: 'foot', spin: true } }),
+  fighter('alien_soldier', 'Alien Soldier', 1.06, false, { super: { name: 'Xeno Rush', first: 'foot', second: 'hand', leap: true } }),
+  fighter('exo_red', 'Exo Red', 1.04, false, { shoulders: 0.3, super: { name: 'Overdrive', first: 'hand', second: 'foot', spin: true, leap: true } }), // a high collar of armour hugs its neck
+  fighter('vanguard', 'Vanguard', 1.1, false, { super: { name: 'Siege Breaker', first: 'foot', second: 'hand', leap: true } }),
 ] as const satisfies readonly Fighter[]
 
 type Roster = (typeof FIGHTERS)[number]

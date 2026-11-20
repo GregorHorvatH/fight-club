@@ -13,8 +13,8 @@
  * chosen zone of the opponent's body. The strikes of a round come one after the other, so the one who is struck stands in his
  * guard where he is, and the one who strikes closes in just enough to reach him (see lungeFor).
  */
-import { IMPACT } from '../timing'
-import type { Weapon, Zone } from '../sim'
+import { IMPACT, SUPER_GAP } from '../timing'
+import { SECOND_ZONE, type Weapon, type Zone } from '../sim'
 
 /** where each fighter stands, left and right of the middle of the ring */
 export const BASE_X = 1.8
@@ -82,12 +82,14 @@ const STRETCH = 0.93
 const LUNGE_MIN = 0.4
 const LUNGE_MAX = 2.6 // only the striker moves: it may cross most of the ring (2 * BASE_X = 3.6 between the roots)
 /** the fist is sent this far short of the surface point (its radius); a foot this far */
-const touch = (b: Build, w: Weapon): number => (w === 'hand' ? b.fist : 0.06)
+const touch = (b: Build, w: Weapon): number => (w === 'foot' ? 0.06 : b.fist)
 /** how far the striking limb can reach from the shoulder / the hip */
-const reach = (b: Build, w: Weapon): number => (w === 'hand' ? b.upper + b.fore : b.thigh + b.shin + b.foot)
+const reach = (b: Build, w: Weapon): number => (w === 'foot' ? b.thigh + b.shin + b.foot : b.upper + b.fore)
 /** a lunge longer than this is a leap (both feet leave the floor on the way in); the longer the lunge, the higher */
 const JUMP_FROM = 2.0
 const hopHeight = (lunge: number): number => 0.2 + 0.25 * clamp01((lunge - JUMP_FROM) / (LUNGE_MAX - JUMP_FROM))
+/** a strike thrown in a leap (a super strike of a leaping style) is this high at least */
+const SUPER_HOP = 0.55
 /** a target that cannot be reached otherwise is reached by jumping up to it (up to this high), or by crouching deeper for a low one */
 const AIR_MAX = 0.9
 const CROUCH_MAX = 0.35
@@ -103,10 +105,33 @@ export interface Plan {
 }
 const NO_PLAN: Plan = { lunge: 0, air: 0, crouch: 0 }
 
+/**
+ * How a fighter throws its super strike: two blows one after the other, each a punch or a kick, optionally in a leap and with a
+ * full turn of the body between them. (The first goes to the zone aimed at, the second to the other zone that was chosen.)
+ */
+export interface SuperStyle {
+  name: string
+  first: 'hand' | 'foot'
+  second: 'hand' | 'foot'
+  /** both blows are thrown in a leap */
+  leap?: boolean
+  /** the body turns right round between the two blows */
+  spin?: boolean
+}
+export const DEFAULT_STYLE: SuperStyle = { name: 'Super strike', first: 'hand', second: 'hand' }
+
 export interface Strike {
   zone: Zone
   weapon: Weapon
+  /** a super strike: the second zone and the way it is thrown */
+  zone2?: Zone
+  style?: SuperStyle
+  /** thrown in a leap, whatever the distance (a part of a super strike of a leaping style) */
+  leap?: boolean
 }
+
+/** What a strike is for the purposes of reach: a super strike is its first blow. */
+const blow = (a: Strike): Strike => (a.weapon === 'super' ? { zone: a.zone, weapon: (a.style ?? DEFAULT_STYLE).first, leap: a.style?.leap } : a)
 export interface ArmPose {
   s: number // shoulder
   e: number // elbow
@@ -170,6 +195,20 @@ export function track(t: number, keys: readonly Key[]): number {
   return keys[keys.length - 1]![1]
 }
 
+/**
+ * The winner's jump: one cycle takes 1 / JOY_RATE seconds. `u` runs 0..1 through it: the crouch (the knees bend, `alpha` is how much),
+ * the push-off at JOY_TAKEOFF (the legs straighten), the air (the knees are drawn up, then reach for the floor) until JOY_LANDING,
+ * and the landing, which the knees take up before the body straightens again. The values at 0 and at 1 are the same: it loops.
+ */
+const JOY_RATE = 1.5
+const JOY_TAKEOFF = 0.28
+const JOY_LANDING = 0.66
+const JOY_HEIGHT = 0.42 // how high the body rises in the air, in figure units
+// (the landing and the crouch for the next jump are one dip, deepest around u = 0)
+const JOY_ALPHA: readonly Key[] = [[0, 0.9], [0.08, 0.95], [JOY_TAKEOFF, 0.05], [0.4, 0.6], [0.54, 0.3], [JOY_LANDING, 0.1], [0.78, 0.55], [0.92, 0.95], [1, 0.9]]
+const JOY_LEAN: readonly Key[] = [[0, 0.17], [0.08, 0.18], [JOY_TAKEOFF, -0.06], [JOY_LANDING, -0.02], [0.78, 0.1], [0.92, 0.17], [1, 0.17]]
+const JOY_ARMS: readonly Key[] = [[0, 0.1], [0.08, 0], [JOY_TAKEOFF, 1], [0.5, 1], [0.72, 0.5], [0.92, 0.1], [1, 0.1]]
+
 const GUARD_N: ArmPose = { s: 0.62, e: 1.95 } // fists up by the chin
 const GUARD_F: ArmPose = { s: 0.5, e: 2.0 }
 const STANCE = { n: 0.18, f: -0.22 } // the thigh angle of the front and the back foot
@@ -204,7 +243,7 @@ interface Body {
 }
 
 /** How far the body crouches and leans at the moment of contact, for each strike. A low punch needs a deep crouch to reach the legs. */
-export const AT_CONTACT: Record<Weapon, Record<Zone, { alpha: number; lean: number }>> = {
+export const AT_CONTACT: Record<'hand' | 'foot', Record<Zone, { alpha: number; lean: number }>> = {
   hand: { head: { alpha: 0.19, lean: 0.2 }, body: { alpha: 0.9, lean: 0.17 }, legs: { alpha: 1.47, lean: 0.18 } },
   foot: { head: { alpha: 0.44, lean: -0.13 }, body: { alpha: 0.63, lean: 0 }, legs: { alpha: 0.66, lean: 0.04 } },
 }
@@ -214,18 +253,18 @@ function bodyAt(t: number, strike: Strike | null, plan: Plan, clock: number, pha
   const twist0 = 0.05 * Math.sin(clock * 1.7 + phase)
   const head0 = 0.03 * Math.sin(clock * 2.1 + phase)
   if (!strike) return { x: 0, lean: LEAN_IDLE, twist: twist0, pelvis: 0, head: head0, alpha: alpha0, step: 0, air: 0 }
-  const c0 = AT_CONTACT[strike.weapon][strike.zone]
+  const c0 = AT_CONTACT[strike.weapon === 'foot' ? 'foot' : 'hand'][strike.zone]
   const c = { alpha: c0.alpha + plan.crouch, lean: c0.lean }
   const C = IMPACT
   const L = plan.lunge
   // a long lunge is a leap: the feet are off the floor from the start of the move to the moment of contact, and land after the blow
   // (a leap up to a high target ends in the air at the contact itself)
-  const start = strike.weapon === 'hand' ? 0.15 : 0.16
-  const land = strike.weapon === 'hand' ? 0.5 : 0.52
-  const hop = L > JUMP_FROM ? hopHeight(L) : 0
+  const start = strike.weapon === 'foot' ? 0.16 : 0.15
+  const land = strike.weapon === 'foot' ? 0.52 : 0.5
+  const hop = strike.leap ? Math.max(SUPER_HOP, L > JUMP_FROM ? hopHeight(L) : 0) : L > JUMP_FROM ? hopHeight(L) : 0
   const top = Math.max(hop, plan.air)
   const air = top === 0 ? 0 : track(t, [[0, 0], [start, 0], [(start + C) / 2, top], [C, plan.air], [0.38, plan.air], [land, 0]])
-  if (strike.weapon === 'hand') {
+  if (strike.weapon !== 'foot') {
     const W = 0.15, H = 0.38, E = 0.74 // wind-up, end of the follow-through, back in guard
     return {
       x: track(t, [[0, 0], [W, -0.1], [C, L], [H, L], [E, 0]]),
@@ -332,7 +371,8 @@ export const clearLungeCache = (): void => planCache.clear()
  * the limb almost fully stretched, and never so much that the heads would touch. A target that is still out of reach is reached by
  * jumping up to it (too high) or by crouching deeper (too low).
  */
-export function planFor(a: Strike, bd: Build = STANDARD, foe: Build = STANDARD): Plan {
+export function planFor(strike: Strike, bd: Build = STANDARD, foe: Build = STANDARD): Plan {
+  const a = blow(strike)
   const key = `${bd.id}>${foe.id}:${a.weapon}${a.zone}`
   const hit = planCache.get(key)
   if (hit) return hit
@@ -367,7 +407,8 @@ export const lungeFor = (a: Strike, bd: Build = STANDARD, foe: Build = STANDARD)
  * How far apart the two heads' front surfaces are at the moment of contact, measured along the line between the fighters
  * (negative = the heads would overlap): the striker has closed in by `lunge`, the opponent stands in his guard.
  */
-export function headGap(a: Strike, lunge?: number, bd: Build = STANDARD, foe: Build = STANDARD): number {
+export function headGap(asked: Strike, lunge?: number, bd: Build = STANDARD, foe: Build = STANDARD): number {
+  const a = blow(asked)
   const ba = bodyAt(IMPACT, a, { ...NO_PLAN, lunge: lunge ?? lungeFor(a, bd, foe) }, 0, 0)
   const pa = zonePoint('head', ba, a.weapon === 'foot', bd)
   const pb = zonePoint('head', bodyAt(IMPACT, null, NO_PLAN, 0, 0), false, foe)
@@ -401,7 +442,8 @@ function ik(dx: number, dy: number, l1: number, l2: number, jointUp: boolean): {
 }
 
 /** The point the fist (centre) or the foot (tip) is sent to: the target, pulled back a little so it touches instead of sinking in. */
-export function aimPoint(strike: Strike, bd: Build = STANDARD, foe: Build = STANDARD): Pt {
+export function aimPoint(asked: Strike, bd: Build = STANDARD, foe: Build = STANDARD): Pt {
+  const strike = blow(asked)
   const kicking = strike.weapon === 'foot'
   const bc = bodyAt(IMPACT, strike, planFor(strike, bd, foe), 0, 0)
   const from = kicking ? hipAt(bc, true, bd) : shoulderAt(bc, false, bd)
@@ -414,7 +456,8 @@ export function aimPoint(strike: Strike, bd: Build = STANDARD, foe: Build = STAN
 }
 
 /** The strike's solved joint angles at the moment of contact. */
-function contact(strike: Strike, bd: Build, foe: Build): { s: number; e: number } | { h: number; k: number } {
+function contact(asked: Strike, bd: Build, foe: Build): { s: number; e: number } | { h: number; k: number } {
+  const strike = blow(asked)
   const kicking = strike.weapon === 'foot'
   const bc = bodyAt(IMPACT, strike, planFor(strike, bd, foe), 0, 0)
   const from = kicking ? hipAt(bc, true, bd) : shoulderAt(bc, false, bd)
@@ -450,12 +493,72 @@ export function strikeTip(p: Pose, weapon: Weapon, bd: Build = STANDARD): Pt {
 const blendArm = (a: ArmPose, to: ArmPose, w: number): ArmPose => ({ s: lerp(a.s, to.s, w), e: lerp(a.e, to.e, w) })
 const blendLeg = (l: LegPose, to: LegPose, w: number): LegPose => ({ h: lerp(l.h, to.h, w), k: lerp(l.k, to.k, w), a: lerp(l.a, to.a, w) })
 
+const mix = (a: number, b: number, w: number): number => a + (b - a) * w
+const mixArm = (a: ArmPose, b: ArmPose, w: number): ArmPose => ({ s: mix(a.s, b.s, w), e: mix(a.e, b.e, w) })
+const mixLeg = (a: LegPose, b: LegPose, w: number): LegPose => ({ h: mix(a.h, b.h, w), k: mix(a.k, b.k, w), a: mix(a.a, b.a, w) })
+
+/**
+ * A super strike: two blows one after the other, in the fighter's own style. Each is an ordinary punch or kick aimed at its own zone
+ * (the second begins SUPER_GAP later), and the pose passes from the first to the second just after the first has connected: the arm
+ * or the leg is drawn back, and the second blow is thrown. In between the fighter may turn right round (a spin), and it moves in from
+ * where it stood to where each blow needs it.
+ */
+function superPose(t: number, input: PoseInput, clock: number, phase: number): Pose {
+  const strike = input.strike!
+  const style = strike.style ?? DEFAULT_STYLE
+  const bd = input.build ?? STANDARD
+  const foe = input.foeBuild ?? STANDARD
+  const zone2 = strike.zone2 ?? SECOND_ZONE[strike.zone]
+  const s1: Strike = { zone: strike.zone, weapon: style.first, leap: style.leap }
+  const s2: Strike = { zone: zone2, weapon: style.second, leap: style.leap }
+  const base: PoseInput = { ...input, stumble: false } // a super strike is not made to stumble: it cannot be guarded altogether
+  const A = computePose(t, { ...base, strike: s1 }, clock, phase)
+  const B = computePose(t, { ...base, strike: s2, strikeAt: input.strikeAt + SUPER_GAP }, clock, phase)
+  const ts = t - input.strikeAt
+  const w = smooth(clamp01((ts - IMPACT) / 0.2))
+  const L1 = lungeFor(s1, bd, foe)
+  const L2 = lungeFor(s2, bd, foe)
+  const END = 0.74 + SUPER_GAP
+  // in from the guard to the first blow, on to the second, and back: one movement (it is the striker's own: nothing else moves it now)
+  const x = ts < END ? track(ts, [[0, 0], [0.15, -0.1], [IMPACT, L1], [IMPACT + 0.05, L1], [IMPACT + SUPER_GAP, L2], [IMPACT + SUPER_GAP + 0.1, L2], [END, 0]]) : mix(A.x, B.x, w)
+  // the legs are blended, and the body is held at the height they need (so that the feet stay on the floor): what is more than that
+  // (a leap) is blended on its own
+  const legN = mixLeg(A.legN, B.legN, w)
+  const legF = mixLeg(A.legF, B.legF, w)
+  const standing = (n: LegPose, f: LegPose, kicking: boolean): number => (kicking ? ext(f, bd) : Math.max(ext(n, bd), ext(f, bd))) - bd.hipY + bd.ankle
+  const kicks1 = style.first === 'foot'
+  const kicks2 = style.second === 'foot'
+  const airA = A.y - standing(A.legN, A.legF, kicks1)
+  const airB = B.y - standing(B.legN, B.legF, kicks2)
+  const y = standing(legN, legF, w < 0.5 ? kicks1 : kicks2) + mix(airA, airB, w)
+  let pelvis = mix(A.pelvis, B.pelvis, w)
+  if (style.spin && ts > IMPACT && ts < IMPACT + SUPER_GAP) {
+    // a full turn between the blows: it ends where it began, facing the opponent again as the second blow connects
+    pelvis += 2 * Math.PI * smooth(clamp01((ts - (IMPACT + 0.03)) / (SUPER_GAP - 0.06)))
+  }
+  return {
+    x,
+    y,
+    lean: mix(A.lean, B.lean, w),
+    twist: mix(A.twist, B.twist, w),
+    pelvis,
+    head: mix(A.head, B.head, w),
+    armN: mixArm(A.armN, B.armN, w),
+    armF: mixArm(A.armF, B.armF, w),
+    legN,
+    legF,
+    fall: mix(A.fall, B.fall, w),
+    flash: mix(A.flash, B.flash, w),
+  }
+}
+
 /**
  * The pose `t` seconds into the replay of a round.
  * @param clock a free-running clock (seconds) for the idle bounce and breathing
  * @param phase offsets the idle bounce so the two fighters do not move in lockstep
  */
 export function computePose(t: number, input: PoseInput, clock = 0, phase = 0): Pose {
+  if (input.strike?.weapon === 'super') return superPose(t, input, clock, phase)
   const { strike, incoming, stumble, ko, won } = input
   const bd = input.build ?? STANDARD
   const foe = input.foeBuild ?? STANDARD
@@ -467,7 +570,7 @@ export function computePose(t: number, input: PoseInput, clock = 0, phase = 0): 
   let kick: LegPose | null = null
   const C = IMPACT
 
-  if (strike?.weapon === 'hand') {
+  if (strike && strike.weapon !== 'foot') {
     const c = contact(strike, bd, foe) as { s: number; e: number }
     const W = 0.15, H = 0.38, E = 0.74
     armN = {
@@ -500,13 +603,14 @@ export function computePose(t: number, input: PoseInput, clock = 0, phase = 0): 
 
   let lift: { w: number } | null = null // a guarded leg strike: the near knee comes up to meet it
   let hop = 0
+  let together = 0 // 0 = the feet apart, one in front of the other (the stance); 1 = side by side, as in a jump for joy
   let fall = 0
   let flash = 0
   const tau = t - input.hitAt // time since the incoming strike connected (negative before)
   const tauOwn = ts - IMPACT // time since this fighter's own strike connected
 
   if (incoming && !incoming.blocked && tau > 0) {
-    const power = incoming.weapon === 'foot' ? 1.3 : 1
+    const power = incoming.weapon === 'foot' || incoming.weapon === 'super' ? 1.3 : 1
     flash = clamp01(1 - tau / 0.45)
     const e = track(tau, [[0, 0], [0.1, 1], [0.32, 0.6], [0.65, 0]]) * power
     if (incoming.zone === 'head') {
@@ -577,13 +681,22 @@ export function computePose(t: number, input: PoseInput, clock = 0, phase = 0): 
   } else if (won) {
     // the winner raises both fists and bounces
     const w = track(tauEnd, [[0, 0], [0.5, 0], [0.95, 1]])
-    armN = blendArm(armN, { s: 2.75, e: 0.25 }, w)
-    armF = blendArm(armF, { s: 2.6, e: 0.3 }, w)
-    hop = w * Math.abs(Math.sin(clock * 6 + phase)) * 0.16
+    // a jump, over and over: the knees bend (the body sinks), the legs push off, the knees are drawn up in the air, the legs reach
+    // for the floor again, and the landing is taken up by the knees; the fists go up with the push and come down a little in the crouch
+    // (it starts at the push-off: a pose that stands still - clock 0 - is the winner with the fists up)
+    const u = (((clock * JOY_RATE + phase / 5 + JOY_TAKEOFF) % 1) + 1) % 1
+    const crouch = track(u, JOY_ALPHA)
+    b.alpha = lerp(b.alpha, crouch, w)
+    together = w // (with one foot ahead of the other, one knee would come up higher than the other: it would be a jump on one leg)
+    b.lean = lerp(b.lean, track(u, JOY_LEAN), w)
+    hop = w * JOY_HEIGHT * 4 * clamp01((u - JOY_TAKEOFF) / (JOY_LANDING - JOY_TAKEOFF)) * (1 - clamp01((u - JOY_TAKEOFF) / (JOY_LANDING - JOY_TAKEOFF)))
+    const swing = track(u, JOY_ARMS) // 0 = fists low, 1 = high
+    armN = blendArm(armN, { s: 2.3 + 0.55 * swing, e: 0.3 - 0.1 * swing }, w)
+    armF = blendArm(armF, { s: 2.2 + 0.5 * swing, e: 0.35 - 0.1 * swing }, w)
   }
 
-  let legN = kick ?? planted(STANCE.n + b.step, b.alpha, bd)
-  const legF = planted(STANCE.f - 0.8 * b.step, b.alpha, bd)
+  let legN = kick ?? planted(STANCE.n * (1 - together) + b.step, b.alpha, bd)
+  const legF = planted(STANCE.f * (1 - together) - 0.8 * b.step, b.alpha, bd)
   if (lift && !kick) legN = blendLeg(legN, { h: 0.95, k: -1.7, a: 0.2 }, lift.w)
   const standing = (kick ? ext(legF, bd) : Math.max(ext(legN, bd), ext(legF, bd))) - bd.hipY + bd.ankle
   const y = lerp(standing, 0.32, fall) + hop + air

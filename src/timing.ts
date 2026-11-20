@@ -2,6 +2,8 @@ import { opponent, type RoundResult, type Side } from './sim'
 
 /** Seconds from the start of a strike to the moment it connects. The animation, the sounds and the flashes are timed to it. */
 export const IMPACT = 0.3
+/** Seconds between the two parts of a super strike (the second part connects this long after the first). */
+export const SUPER_GAP = 0.25
 /** Seconds each strike of a round is given: the caption, the strike, the reaction. The two strikes of a round follow each other. */
 export const BEAT = 1.7
 /** Seconds from the start of a beat (when its caption appears) to the moment the strike begins. */

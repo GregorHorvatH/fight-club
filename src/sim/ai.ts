@@ -1,4 +1,4 @@
-import { AI_MEMORY, HARD_CONFIDENCE, HARD_KICK_THRESHOLD, KICK_SAFE_HP } from './config'
+import { AI_MEMORY, AI_SUPER_CHANCE, HARD_CONFIDENCE, HARD_KICK_THRESHOLD, KICK_SAFE_HP } from './config'
 import type { Rng } from './rng'
 import { ZONES, type Difficulty, type Move, type Weapon, type Zone } from './types'
 
@@ -47,9 +47,21 @@ function weaponFor(difficulty: Difficulty, pHit: number, rng: Rng): Weapon {
  *  - normal: matches the player's habits (guards where the player tends to strike, strikes where the player tends not to guard)
  *  - hard:   same, but nearly always takes the most likely zone
  * The smarter AIs also choose between a punch and a kick: they kick when they expect the zone to be unguarded, unless they are nearly
- * out of health (`hp`): a kick is slow, and the other one's faster punch would land first.
+ * out of health (`hp`): a kick is slow, and the other one's faster punch would land first. When it can (`superReady`) it sometimes
+ * throws a super strike instead (never when it is nearly out of health: that is the slowest strike of all). A scripted generator is
+ * not disturbed by this when the enemy cannot: nothing is drawn then.
  */
-export function chooseMove(history: readonly Move[], difficulty: Difficulty, rng: Rng, hp = Infinity): Move {
+export function chooseMove(history: readonly Move[], difficulty: Difficulty, rng: Rng, hp = Infinity, superReady = false): Move {
+  const move = pick(history, difficulty, rng, hp)
+  if (superReady && hp > KICK_SAFE_HP && rng() < AI_SUPER_CHANCE[difficulty]) {
+    // the second zone: one of the other two
+    const others = ZONES.filter((z) => z !== move.attack)
+    return { ...move, weapon: 'super', attack2: others[Math.floor(rng() * others.length)]! }
+  }
+  return move
+}
+
+function pick(history: readonly Move[], difficulty: Difficulty, rng: Rng, hp: number): Move {
   if (difficulty === 'easy' || history.length === 0) {
     return { attack: sample(uniform(), rng), weapon: rng() < 0.5 ? 'hand' : 'foot', block: sample(uniform(), rng) }
   }

@@ -8,10 +8,11 @@
  *     middle   A      S        D             middle J      K        L       body  /  kick
  *     bottom   Z      X        C             bottom ,      .        /       legs  /  fight
  *
+ * Each player has a tenth key, the super strike: R (left hand), U (right hand).
  * Between two people they choose one after the other (the left fighter first): only the keys of the one whose turn it is do anything.
  * Enter and Space confirm for whoever is choosing. In the main menu: up / down (or W / S) move the cursor, Enter chooses. On the setup
  * screen: 1 2 3 = difficulty (arcade), up / down + Enter = Select fighter or Back (the end screen: fight again or back), on the selection screen the arrows (or W A S D) move over the tiles and Enter chooses, B = the next arena, Esc = back to the menu (also from the about and the end screens).
- * In a fight Esc pauses (then up / down and Enter choose: Continue, or Reset = the main menu; Esc continues). Anywhere: V = 2D / 3D, M = mute. Auto-repeat is ignored.
+ * In a fight Esc pauses (then up / down and Enter choose: Continue, Fight again or Back to main menu; Esc continues). Anywhere: V = 2D / 3D, M = mute. Auto-repeat is ignored.
  */
 import { turnOf, useGame } from './state/game'
 import { nextArena, useArenas } from './state/arenas'
@@ -42,6 +43,9 @@ const GRID: Record<Side, readonly [Column, Column, Column]> = {
   enemy: [['KeyI', 'KeyJ', 'Comma'], ['KeyO', 'KeyK', 'Period'], ['KeyP', 'KeyL', 'Slash']],
 }
 
+/** The key of the super strike (a button of its own under the punch and the kick). */
+export const SUPER_CODE: Record<Side, string> = { player: 'KeyR', enemy: 'KeyU' }
+
 /** The key that guards / strikes this zone. */
 export const zoneCode = (side: Side, what: 'guard' | 'strike', zone: Zone): string => GRID[side][what === 'guard' ? 0 : 2][ZONE_ORDER.indexOf(zone)]!
 /** The key of one of the three buttons. */
@@ -55,6 +59,7 @@ function keymap(side: Side): Record<string, Bind> {
   }
   m[buttonCode(side, 'punch')] = { side, kind: 'weapon', weapon: 'hand' }
   m[buttonCode(side, 'kick')] = { side, kind: 'weapon', weapon: 'foot' }
+  m[SUPER_CODE[side]] = { side, kind: 'weapon', weapon: 'super' }
   m[buttonCode(side, 'fight')] = { side, kind: 'go' }
   return m
 }
@@ -69,6 +74,7 @@ export const keyLabel = (code: string): string => SYMBOL[code] ?? code.replace('
 /** The labels of the keys, for the badges on the buttons. They never change: a badge is where the key is. */
 export const zoneKey = (side: Side, what: 'guard' | 'strike', zone: Zone): string => keyLabel(zoneCode(side, what, zone))
 export const buttonKey = (side: Side, button: Button): string => keyLabel(buttonCode(side, button))
+export const superKey = (side: Side): string => keyLabel(SUPER_CODE[side])
 
 /** Handles one key press; returns whether it was used (so the page can stop it from scrolling). */
 export function handleKey(code: string): boolean {

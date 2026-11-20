@@ -1,7 +1,7 @@
 /** Every sound is synthesised with the Web Audio API: there are no audio files. */
 import { useSettings } from '../state/settings'
 
-export type Sound = 'select' | 'bell' | 'hit' | 'kick' | 'whoosh' | 'crit' | 'block' | 'stumble' | 'win' | 'lose'
+export type Sound = 'select' | 'bell' | 'hit' | 'kick' | 'whoosh' | 'crit' | 'super' | 'block' | 'stumble' | 'win' | 'lose'
 
 let ctx: AudioContext | null = null
 let noise: AudioBuffer | null = null
@@ -100,6 +100,14 @@ const SOUNDS: Record<Sound, (c: AudioContext) => void> = {
     burst(c, 3200, 0.2, 0.5)
     tone(c, 'sine', 200, 35, 0.32, 0.7)
     tone(c, 'sawtooth', 900, 200, 0.2, 0.12)
+  },
+  // the super strike lands: a rising shimmer cut off by a huge, low boom and a crack
+  super: (c) => {
+    whoosh(c, 300, 5200, 0.16, 0.5)
+    burst(c, 2600, 0.35, 0.6, 0.02)
+    tone(c, 'sine', 120, 24, 0.7, 1.0, 0.02)
+    tone(c, 'sawtooth', 1200, 140, 0.35, 0.16, 0.02)
+    tone(c, 'triangle', 880, 440, 0.5, 0.12, 0.05)
   },
   block: (c) => {
     tone(c, 'triangle', 1400, 900, 0.1, 0.25)

@@ -113,9 +113,13 @@ function Figure({ side, view, settled }: FigureProps) {
     return () => cancelAnimationFrame(raf)
   }, [view, phase])
 
-  const state = (z: Zone): string => (view.incoming?.zone === z ? (view.incoming.blocked ? 'blocked' : 'hit') : '')
+  const state = (z: Zone): string => {
+    const i = view.incoming
+    if (i?.zone === z) return i.blocked ? 'blocked' : 'hit'
+    return i?.also?.zone === z ? (i.also.blocked ? 'blocked' : 'hit') : ''
+  }
   /** the zone glows gold while you aim at it (on the enemy) and blue while it is guarded */
-  const glow = (z: Zone): string | undefined => (view.shield === z ? `url(#glow-shield-${side})` : view.aim === z ? `url(#glow-aim-${side})` : undefined)
+  const glow = (z: Zone): string | undefined => (view.shield === z ? `url(#glow-shield-${side})` : view.aim === z || view.aim2 === z ? `url(#glow-aim-${side})` : undefined)
 
   /** a tap / click on a zone of the fighter picks it (solo, while choosing); the pointer over it lights it up as a preview */
   const tap = (z: Zone) =>

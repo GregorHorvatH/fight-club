@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../src/audio/synth', () => ({ play: () => undefined }))
 
 const { BUTTONS, KEYS, buttonCode, buttonKey, handleKey, zoneCode, zoneKey } = await import('../src/input')
-const { useGame } = await import('../src/state/game')
+const { useGame, toggleZone } = await import('../src/state/game')
+const { aimed } = await import('../src/ui/arenaView')
 const { useSettings } = await import('../src/state/settings')
 const { MENU, useMenu } = await import('../src/state/menu')
 const roster = await import('../src/state/roster')
@@ -11,12 +12,12 @@ const { ZONES } = await import('../src/sim')
 const { IDLE_MS, STEP_TEXT, idleHint, stepOf } = await import('../src/ui/steps')
 
 describe('the keys form the same picture as the screen', () => {
-  it('every player has nine different keys, and the two players share none', () => {
+  it('every player has ten different keys (nine on the grid and the super strike), and the two players share none', () => {
     const a = Object.keys(KEYS.player)
     const b = Object.keys(KEYS.enemy)
-    expect(a).toHaveLength(9)
-    expect(b).toHaveLength(9)
-    expect(new Set([...a, ...b]).size).toBe(18)
+    expect(a).toHaveLength(10)
+    expect(b).toHaveLength(10)
+    expect(new Set([...a, ...b]).size).toBe(20)
   })
 
   it('no player key is used by anything else (Enter / Space lock in; M, V, B, 1 2 3 are the settings)', () => {
@@ -190,7 +191,7 @@ describe('tapping the fighters', () => {
 })
 
 describe('what is still missing', () => {
-  const choice = (over: Partial<ReturnType<typeof useGame.getState>['choice']['player']>) => ({ attack: null, weapon: 'hand' as const, block: null, locked: false, ...over })
+  const choice = (over: Partial<ReturnType<typeof useGame.getState>['choice']['player']>) => ({ attack: null, attack2: null, weapon: 'hand' as const, block: null, locked: false, ...over })
 
   it('walks the player through the two choices', () => {
     expect(stepOf(choice({}))).toBe('both')
@@ -198,6 +199,9 @@ describe('what is still missing', () => {
     expect(stepOf(choice({ block: 'head' }))).toBe('strike')
     expect(stepOf(choice({ attack: 'head', block: 'legs' }))).toBe('ready')
     expect(stepOf(choice({ attack: 'head', block: 'legs', locked: true }))).toBe('locked')
+    // a super strike hits two zones: the second is still missing after the first
+    expect(stepOf(choice({ attack: 'head', block: 'legs', weapon: 'super' }))).toBe('strike2')
+    expect(stepOf(choice({ attack: 'head', attack2: 'body', block: 'legs', weapon: 'super' }))).toBe('ready')
   })
 
   it('says something for every step that is waiting, and nothing once the round can start', () => {
@@ -354,21 +358,48 @@ describe('the pause', () => {
     press('Escape')
     expect(useGame.getState().pauseItem).toBe('continue')
     press('ArrowDown')
-    expect(useGame.getState().pauseItem).toBe('reset')
+    expect(useGame.getState().pauseItem).toBe('again')
+    press('ArrowDown')
+    expect(useGame.getState().pauseItem).toBe('menu')
     press('ArrowDown') // wraps around
     expect(useGame.getState().pauseItem).toBe('continue')
     press('ArrowUp')
-    expect(useGame.getState().pauseItem).toBe('reset')
-    press('ArrowUp', 'Enter')
+    expect(useGame.getState().pauseItem).toBe('menu')
+    press('ArrowUp', 'ArrowUp', 'Enter') // back on Continue
     expect(useGame.getState().paused).toBe(false)
     expect(useGame.getState().phase).toBe('choose')
   })
 
-  it('Reset leaves the fight for the main menu', () => {
-    press('KeyE', 'KeyQ', 'Escape', 'ArrowDown', 'Enter')
+  it('Back to main menu leaves the fight for the main menu', () => {
+    press('KeyE', 'KeyQ', 'Escape', 'ArrowDown', 'ArrowDown', 'Enter')
     const g = useGame.getState()
     expect(g.paused).toBe(false)
     expect(g.phase).toBe('menu')
+    expect(g.choice.player.attack).toBeNull()
+  })
+
+  it('Fight again, while choosing, clears the picks and goes on choosing', () => {
+    press('KeyE', 'KeyQ', 'Escape', 'ArrowDown', 'Enter')
+    const g = useGame.getState()
+    expect(g.paused).toBe(false)
+    expect(g.phase).toBe('choose')
+    expect(g.choice.player).toMatchObject({ attack: null, block: null })
+    expect(g.match.round).toBe(0)
+  })
+
+  it('Fight again, during the replay of a round, takes the round back: the match is as it was before it', () => {
+    press('KeyE', 'KeyQ', 'KeyX') // a round is fought
+    expect(useGame.getState().phase).toBe('reveal')
+    const hit = useGame.getState().match
+    expect(hit.round).toBe(1)
+    press('Escape', 'ArrowDown', 'Enter')
+    const g = useGame.getState()
+    expect(g.paused).toBe(false)
+    expect(g.phase).toBe('choose')
+    expect(g.match.round).toBe(0)
+    expect(g.match.hp).toEqual({ player: 100, enemy: 100 })
+    expect(g.match.log).toHaveLength(0)
+    expect(g.last).toBeNull()
     expect(g.choice.player.attack).toBeNull()
   })
 
@@ -547,5 +578,90 @@ describe('choosing the fighter', () => {
 
   it('the rival of a fighter is another one, whatever the dice say', () => {
     for (const f of FIGHTERS) for (const r of [0, 0.5, 0.999]) expect(rivalOf(f.id, () => r)).not.toBe(f.id)
+  })
+})
+
+describe('choosing the two zones of a super strike', () => {
+  const press = (...codes: string[]) => codes.forEach((c) => handleKey(c))
+  const mine = () => useGame.getState().choice.player
+
+  beforeEach(() => {
+    useSettings.setState({ mode: 'solo' })
+    useGame.getState().start()
+    // a super strike needs a full meter
+    useGame.setState({ match: { ...useGame.getState().match, meter: { player: 100, enemy: 0 } } })
+  })
+
+  it('the strike keys take zones in turn: the first, the second, and a third replaces the oldest', () => {
+    press('KeyR') // the super strike
+    expect(mine().weapon).toBe('super')
+    press('KeyE')
+    expect(mine()).toMatchObject({ attack: 'head', attack2: null })
+    press('KeyC')
+    expect(mine()).toMatchObject({ attack: 'head', attack2: 'legs' })
+    press('KeyD') // body: the oldest (head) goes
+    expect(mine()).toMatchObject({ attack: 'legs', attack2: 'body' })
+  })
+
+  it('a zone chosen again is taken away', () => {
+    press('KeyR', 'KeyE', 'KeyC', 'KeyE')
+    expect(mine()).toMatchObject({ attack: 'legs', attack2: null })
+    press('KeyC')
+    expect(mine()).toMatchObject({ attack: null, attack2: null })
+  })
+
+  it('the round cannot start with one zone only; with two it can', () => {
+    press('KeyR', 'KeyA', 'KeyE') // guard the body, strike the head
+    expect(stepOf(mine())).toBe('strike2')
+    press('KeyX') // fight: nothing happens yet
+    expect(useGame.getState().phase).toBe('choose')
+    press('KeyC')
+    expect(stepOf(mine())).toBe('ready')
+    press('KeyX')
+    expect(useGame.getState().phase).toBe('reveal')
+    expect(useGame.getState().last!.moves.player).toMatchObject({ weapon: 'super', attack: 'head', attack2: 'legs' })
+    expect(useGame.getState().last!.strikes.player!.extra!.zone).toBe('legs')
+  })
+
+  it('without a full meter the super key does nothing: the strike stays a punch', () => {
+    useGame.setState({ match: { ...useGame.getState().match, meter: { player: 99, enemy: 0 } } })
+    press('KeyR')
+    expect(mine().weapon).toBe('hand')
+  })
+
+  it('going back to a punch strikes one zone again', () => {
+    press('KeyR', 'KeyE', 'KeyC', 'KeyW') // punch
+    expect(mine().weapon).toBe('hand')
+    expect(mine().attack2).toBeNull()
+    press('KeyD')
+    expect(mine()).toMatchObject({ attack: 'body', attack2: null })
+  })
+
+  it('toggleZone works on its own', () => {
+    expect(toggleZone({ attack: null, attack2: null }, 'head')).toEqual({ attack: 'head', attack2: null })
+    expect(toggleZone({ attack: 'head', attack2: null }, 'legs')).toEqual({ attack: 'head', attack2: 'legs' })
+    expect(toggleZone({ attack: 'head', attack2: 'legs' }, 'body')).toEqual({ attack: 'legs', attack2: 'body' })
+    expect(toggleZone({ attack: 'head', attack2: 'legs' }, 'head')).toEqual({ attack: 'legs', attack2: null })
+  })
+})
+
+describe('what glows on the enemy while the zones of a super strike are chosen', () => {
+  const c = (attack: 'head' | 'body' | 'legs' | null, attack2: 'head' | 'body' | 'legs' | null, weapon: 'hand' | 'super' = 'super') => ({ attack, attack2, weapon })
+
+  it('a punch: the zone under the pointer, or the one chosen', () => {
+    expect(aimed(c('head', null, 'hand'), 'legs')).toEqual(['legs', null])
+    expect(aimed(c('head', null, 'hand'), null)).toEqual(['head', null])
+  })
+
+  it('a super strike: the first zone stays lit while the second is chosen, whatever is under the pointer', () => {
+    expect(aimed(c('head', null), 'legs')).toEqual(['head', 'legs'])
+    expect(aimed(c('head', null), null)).toEqual(['head', null])
+    expect(aimed(c(null, null), 'body')).toEqual(['body', null])
+  })
+
+  it('with both chosen, a third under the pointer shows what a tap would do (it replaces the first); a chosen one under it changes nothing', () => {
+    expect(aimed(c('head', 'legs'), 'body')).toEqual(['legs', 'body'])
+    expect(aimed(c('head', 'legs'), 'legs')).toEqual(['head', 'legs'])
+    expect(aimed(c('head', 'legs'), null)).toEqual(['head', 'legs'])
   })
 })

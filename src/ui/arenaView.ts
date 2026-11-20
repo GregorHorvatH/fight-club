@@ -1,12 +1,26 @@
 import { opponent, type Side, type Weapon, type Zone } from '../sim'
-import { turnOf, useGame } from '../state/game'
-import { IMPACT, timelineOf } from '../timing'
-import type { PoseInput } from './pose'
+import { turnOf, useGame, type Choice } from '../state/game'
+import { fighterOf } from '../state/roster'
+import { IMPACT, SUPER_GAP, timelineOf } from '../timing'
+import type { PoseInput, SuperStyle } from './pose'
 
 export interface Incoming {
+  /** the part of the blow the fighter reacts to: the first one that landed (a super strike has two parts) */
   zone: Zone
   blocked: boolean
   weapon: Weapon
+  /** the other part of a super strike: it flashes too (when it landed), SUPER_GAP after the first */
+  also: { zone: Zone; blocked: boolean } | null
+  /** seconds after the first blow that the part reacted to connects (0, or SUPER_GAP when it is the second part of a super strike) */
+  delay: number
+}
+
+/** A strike as a fighter throws it: the second zone and the style are those of a super strike. */
+export interface Thrown {
+  zone: Zone
+  weapon: Weapon
+  zone2?: Zone
+  style?: SuperStyle
 }
 
 export interface Label {
@@ -34,10 +48,12 @@ export interface FighterView {
   incoming: Incoming | null
   /** a crosshair on the zone the player is about to strike (on the enemy, while choosing; solo mode only) */
   aim: Zone | null
-  /** the strike this fighter threw this round (a punch or a kick), or null when the fight was decided before its turn */
-  strike: { zone: Zone; weapon: Weapon } | null
+  /** the second zone of a super strike that is being chosen */
+  aim2: Zone | null
+  /** the strike this fighter threw this round (a punch, a kick or a super strike), or null when the fight was decided before its turn */
+  strike: Thrown | null
   /** the strike the opponent threw at this fighter: what hit (or was guarded by) it */
-  foe: { zone: Zone; weapon: Weapon } | null
+  foe: Thrown | null
   times: Times
   /** this fighter's own kick was guarded: it stumbles */
   stumble: boolean
@@ -53,23 +69,48 @@ export interface FighterView {
   over?: (zone: Zone | null) => void
 }
 
+/** A strike as thrown by this fighter: a super strike has its second zone, and the style of the character that throws it. */
+const thrown = (s: { zone: Zone; weapon: Weapon; extra: { zone: Zone } | null }, id: Parameters<typeof fighterOf>[0]): Thrown => ({
+  zone: s.zone,
+  weapon: s.weapon,
+  ...(s.weapon === 'super' ? { zone2: s.extra?.zone, style: fighterOf(id).super } : {}),
+})
+
+/**
+ * The zones that glow on the enemy while choosing: what is chosen, and the zone under the pointer as a preview of what a tap would
+ * pick. A super strike hits two: the one chosen stays lit while the second is chosen (a tap on a third replaces the first one chosen).
+ */
+export function aimed(c: Pick<Choice, 'attack' | 'attack2' | 'weapon'>, hovered: Zone | null): [Zone | null, Zone | null] {
+  if (c.weapon !== 'super') return [hovered ?? c.attack, null]
+  if (hovered === null || hovered === c.attack || hovered === c.attack2) return [c.attack, c.attack2]
+  if (c.attack === null) return [hovered, null]
+  if (c.attack2 === null) return [c.attack, hovered]
+  return [c.attack2, hovered]
+}
+
 /** Reads the game and works out how one fighter looks right now. */
 export function useFighterView(side: Side): FighterView {
-  const { phase, mode, match, choice, last, hover, tap, setHover } = useGame()
+  const { phase, mode, match, choice, last, hover, tap, setHover, fighters } = useGame()
   const other = opponent(side)
   const reveal = phase === 'reveal' || phase === 'over' ? last : null
   const labels: Label[] = []
   const tl = reveal ? timelineOf(reveal) : null
   const incoming = reveal ? reveal.strikes[other] : null
+  const parts = incoming ? [{ zone: incoming.zone, blocked: incoming.blocked, damage: incoming.damage }, ...(incoming.extra ? [incoming.extra] : [])] : []
+  const react = parts.find((p) => !p.blocked) ?? parts[0]
+  const rest = parts.find((p) => p !== react)
   const own = reveal ? reveal.strikes[side] : null
   if (reveal && tl) {
     if (incoming) {
       const at = tl.hitAt[other]!
-      labels.push(
-        incoming.blocked
-          ? { text: 'BLOCK', kind: 'block', at }
-          : { text: `-${incoming.damage}${incoming.crit ? ' CRIT!' : ''}`, kind: incoming.crit ? 'crit' : 'hit', at },
-      )
+      // a super strike has two parts: each says what became of it, one just after the other
+      parts.forEach((p, i) => {
+        labels.push(
+          p.blocked
+            ? { text: 'BLOCK', kind: 'block', at: at + i * SUPER_GAP }
+            : { text: `-${p.damage}${incoming.crit ? ' CRIT!' : ''}`, kind: incoming.crit ? 'crit' : 'hit', at: at + i * SUPER_GAP },
+        )
+      })
     }
     if (own?.recoil) labels.push({ text: `STUMBLE -${own.recoil}`, kind: 'stumble', at: tl.hitAt[side]! + 0.25 })
   }
@@ -83,10 +124,14 @@ export function useFighterView(side: Side): FighterView {
     pick: choosing ? (zone: Zone) => tap(side, zone) : undefined,
     over: choosing ? (zone: Zone | null) => setHover(zone ? { side, zone } : null) : undefined,
     shield: reveal ? reveal.moves[side].block : choosing && side === me ? (hovered ?? choice[me].block) : null,
-    incoming: incoming ? { zone: incoming.zone, blocked: incoming.blocked, weapon: incoming.weapon } : null,
-    aim: choosing && side !== me ? (hovered ?? choice[me].attack) : null,
-    strike: own ? { zone: own.zone, weapon: own.weapon } : null,
-    foe: incoming ? { zone: incoming.zone, weapon: incoming.weapon } : null,
+    incoming:
+      incoming && react
+        ? { zone: react.zone, blocked: react.blocked, weapon: incoming.weapon, also: rest ? { zone: rest.zone, blocked: rest.blocked } : null, delay: parts.indexOf(react) * SUPER_GAP }
+        : null,
+    aim: choosing && side !== me ? aimed(choice[me], hovered)[0] : null,
+    aim2: choosing && side !== me ? aimed(choice[me], hovered)[1] : null,
+    strike: own ? thrown(own, fighters[side]) : null,
+    foe: incoming ? thrown(incoming, fighters[other]) : null,
     times: { strikeAt: tl?.strikeAt[side] ?? 0, hitAt: tl?.hitAt[other] ?? IMPACT, endAt: tl?.endAt ?? IMPACT },
     stumble: own !== null && own.recoil > 0,
     ko: (phase === 'reveal' || phase === 'over') && match.hp[side] === 0,
@@ -101,6 +146,8 @@ export function useFighterView(side: Side): FighterView {
  */
 export interface Stage {
   t: number
+  /** the free-running clock of the idle bounce and of the winner's jumps, frozen at this many seconds (0 when not given) */
+  clock?: number
   headYaw: number
   /** the whole body is turned to face the camera, not only the head (the avatars of the selection screen) */
   front?: boolean
@@ -115,7 +162,7 @@ export const poseInput = (v: FighterView): PoseInput => ({
   strike: v.strike,
   strikeAt: v.times.strikeAt,
   incoming: v.incoming,
-  hitAt: v.times.hitAt,
+  hitAt: v.times.hitAt + (v.incoming?.delay ?? 0), // when the part of the blow that it reacts to connects
   stumble: v.stumble,
   ko: v.ko,
   won: v.won,

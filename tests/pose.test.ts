@@ -378,7 +378,7 @@ describe('leaps', () => {
   })
 
   it('a short lunge is a step: both feet stay on the floor', () => {
-    const short = ALL.filter((st) => lungeFor(st, STANDARD, STANDARD) < 2)
+    const short = ALL.filter((st) => st.weapon !== 'super' && lungeFor(st, STANDARD, STANDARD) < 2) // (a super strike is always a leap)
     expect(short.length).toBeGreaterThan(0)
     for (const st of short) for (let t = 0; t < 1.2; t += 0.02) expect(lift(pose(t, STANDARD, STANDARD, st), STANDARD), `${name(st)} @${t.toFixed(2)}`).toBeLessThan(0.1)
   })

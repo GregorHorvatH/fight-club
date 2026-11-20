@@ -1,7 +1,7 @@
 import type { Choice } from '../state/game'
 
 /** What the player still has to do to start the round. */
-export type Step = 'both' | 'guard' | 'strike' | 'ready' | 'locked'
+export type Step = 'both' | 'guard' | 'strike' | 'strike2' | 'ready' | 'locked'
 
 /** One thing per moment: a guard and a strike are both needed; then the round can start (or, between two people, be locked in). */
 export function stepOf(c: Choice): Step {
@@ -9,6 +9,7 @@ export function stepOf(c: Choice): Step {
   if (c.attack === null && c.block === null) return 'both'
   if (c.block === null) return 'guard'
   if (c.attack === null) return 'strike'
+  if (c.weapon === 'super' && c.attack2 === null) return 'strike2' // a super strike hits two zones
   return 'ready'
 }
 
@@ -17,6 +18,7 @@ export const STEP_TEXT: Record<Step, string> = {
   both: 'Pick a guard and a strike',
   guard: 'Now pick a guard',
   strike: 'Now pick a strike',
+  strike2: 'Pick a second zone',
   ready: '',
   locked: '',
 }
@@ -32,5 +34,6 @@ export function idleHint(step: Step, me: string, other: string): string {
   if (step === 'both') return `Tap ${me} to guard a zone and ${other} to strike one`
   if (step === 'guard') return `You still have to guard: tap ${me},\non the zone you want to protect`
   if (step === 'strike') return `You still have to strike: tap ${other},\non the zone you want to hit`
+  if (step === 'strike2') return `A super strike hits two zones: tap ${other},\non a second zone you want to hit`
   return ''
 }

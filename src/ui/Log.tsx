@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react'
 import { turnOf, useGame } from '../state/game'
 import { useNames } from './names'
-import type { RoundResult, Side, Strike } from '../sim'
+import { landed, type RoundResult, type Side, type Strike } from '../sim'
 import { timelineOf } from '../timing'
 import { useLanded } from './reveal'
 import { IDLE_MS, idleHint, stepOf } from './steps'
 
-const ICON = { hand: '✊', foot: '🦶' } as const
+const ICON = { hand: '✊', foot: '🦶', super: '✦' } as const
 
-/** What one strike did: "✊ head: 12", "🦶 legs: blocked (stumble -7)". */
+/** What one strike did: "✊ head: 12", "🦶 legs: blocked (stumble -7)", "✦ head: 14 + body: blocked". */
 function describe(s: Strike): string {
-  const what = `${ICON[s.weapon]} ${s.zone}`
-  if (s.blocked) return `${what}: blocked${s.recoil ? ` (stumble -${s.recoil})` : ''}`
-  return `${what}: ${s.damage}${s.crit ? ' CRIT' : ''}`
+  const part = (zone: string, blocked: boolean, damage: number, crit: boolean): string => `${zone}: ${blocked ? 'blocked' : `${damage}${crit ? ' CRIT' : ''}`}`
+  const first = part(s.zone, s.blocked, s.damage, s.crit)
+  if (s.extra) return `${ICON.super} ${first} + ${part(s.extra.zone, s.extra.blocked, s.extra.damage, s.crit)}`
+  return `${ICON[s.weapon]} ${first}${s.blocked && s.recoil ? ` (stumble -${s.recoil})` : ''}`
 }
 
 function Row({ r, side, opacity }: { r: RoundResult; side: Side; opacity?: number }) {
@@ -20,7 +21,7 @@ function Row({ r, side, opacity }: { r: RoundResult; side: Side; opacity?: numbe
   return (
     <li style={opacity === undefined ? undefined : { opacity }}>
       <b>R{r.round}</b>
-      <span className={s.blocked ? 'miss' : s.crit ? 'crit' : 'hit'}>{describe(s)}</span>
+      <span className={!landed(s) ? 'miss' : s.crit ? 'crit' : 'hit'}>{describe(s)}</span>
     </li>
   )
 }
@@ -80,13 +81,13 @@ export function Hint() {
   const c = useGame((s) => s.choice[turnOf(s.choice, s.mode)])
   const matchId = useGame((s) => s.matchId)
   const round = useGame((s) => s.match.round)
-  const idle = useIdle(`${matchId}/${round}/${phase}/${turn}/${c.attack}/${c.block}/${c.weapon}/${c.locked}`)
+  const idle = useIdle(`${matchId}/${round}/${phase}/${turn}/${c.attack}/${c.attack2}/${c.block}/${c.weapon}/${c.locked}`)
   const step = stepOf(c)
   const names = useNames()
   const me = names[turn]
   const other = names[turn === 'player' ? 'enemy' : 'player']
   if (phase === 'menu' || phase === 'about' || phase === 'setup' || phase === 'select') return null // no fight yet: nothing to explain
-  const missing = phase === 'choose' && idle && (step === 'guard' || step === 'strike' || step === 'both') ? idleHint(step, mode === 'duo' ? 'yourself' : me, other) : ''
+  const missing = phase === 'choose' && idle && (step === 'guard' || step === 'strike' || step === 'strike2' || step === 'both') ? idleHint(step, mode === 'duo' ? 'yourself' : me, other) : ''
   if (mode === 'duo') {
     return (
       <p className={`hint turn ${turn}`}>

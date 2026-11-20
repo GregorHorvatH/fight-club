@@ -6,7 +6,7 @@ import { usePortrait } from './usePortrait'
 import { columnsFor, isUnlocked, slotFighter, SLOTS } from '../state/roster'
 import { useBest } from '../state/best'
 import { useSettings } from '../state/settings'
-import { buttonKey, zoneKey } from '../input'
+import { buttonKey, superKey, zoneKey } from '../input'
 import { DIFFICULTIES, type Difficulty, type Side } from '../sim'
 import { useNames } from './names'
 
@@ -92,6 +92,15 @@ function KeyGrid({ side, label }: { side: Side; label?: string }) {
           <span className="kz">{name}</span>
         </div>
       ))}
+      <div className="krow ksuper">
+        <span />
+        <span className="kmid">
+          <i aria-hidden="true">✦</i>
+          <kbd>{superKey(side)}</kbd>
+        </span>
+        <span />
+        <span className="kz">Super</span>
+      </div>
     </div>
   )
 }
@@ -155,6 +164,10 @@ export function About() {
         </li>
         <li>You both choose in secret, then the strikes come one after the other: a punch is fast and goes first, a kick is slow. A knockout ends the round.</li>
         <li>Landing strikes in a row builds a combo. An unguarded strike may be a critical hit (double damage).</li>
+        <li>
+          <b>Super strike</b> (✦): hits two zones at once, so a guard covers only one of them, and it is the slowest strike of all. Its meter fills
+          when you land a blow or hold a guard, and a little when you are hurt.
+        </li>
       </ul>
 
       <h2>Controls</h2>
@@ -312,7 +325,7 @@ export function Setup() {
 /** The pause window: over the fight, which cannot be touched meanwhile. A list like the main menu (arrows and Enter, or the pointer). */
 export function Pause() {
   const { pauseItem, pointPause, choosePause } = useGame()
-  const label: Record<PauseItem, string> = { continue: 'Continue', reset: 'Reset' }
+  const label: Record<PauseItem, string> = { continue: 'Continue', again: 'Fight again', menu: 'Back to main menu' }
   return (
     <>
       <div className="scrim" aria-hidden="true" />

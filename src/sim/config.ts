@@ -26,3 +26,18 @@ export const AI_MEMORY = 0.85
 export const HARD_KICK_THRESHOLD = 0.75
 /** Enemy AI: with this much health or less it does not kick (a kick is slow: the faster punch of the other one lands first). */
 export const KICK_SAFE_HP = 24
+
+/**
+ * The super strike. Each of its two parts does this many times the damage of a punch, and every part that is not guarded is a critical
+ * hit (CRIT_MULT times that): both landing is 2 * SUPER_MULT * CRIT_MULT = 2.4 punches, one landing 1.2. It is the slowest strike: it
+ * lands after a kick.
+ */
+export const SUPER_MULT = 0.6
+/** The super meter (0 to SUPER_METER): it fills by reading the opponent right ... */
+export const SUPER_METER = 100
+export const SUPER_LAND = 25 // a strike of yours lands
+export const SUPER_GUARD = 25 // you guard the zone that is struck
+/** ... and a little by being hurt, so that the one who is losing gets his chance. */
+export const SUPER_HURT = 10
+/** Enemy AI: how often it throws a super strike when it can (easy, normal, hard). */
+export const AI_SUPER_CHANCE = { easy: 0.15, normal: 0.3, hard: 0.5 } as const
