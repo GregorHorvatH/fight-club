@@ -323,7 +323,7 @@ kbd {
 .select h1 { margin-bottom: 4px; }
 .who { margin-bottom: 12px !important; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .who.player { color: var(--player); } .who.enemy { color: var(--enemy); }
-.roster { display: grid; gap: 8px; max-width: 360px; margin: 0 auto; } /* the columns are set by the screen: 4 across in a wide window, 3 in a tall one */
+.roster { display: grid; gap: 8px; max-width: 440px; margin: 0 auto; } /* the columns are set by the screen: 4 across in a wide window, 3 in a tall one */
 .tile {
   position: relative; aspect-ratio: 1; padding: 0; overflow: hidden; display: grid; place-items: center;
   background: var(--panel-2); border: 2px solid var(--line); border-radius: 10px; transition: transform .08s, border-color .12s, box-shadow .12s;

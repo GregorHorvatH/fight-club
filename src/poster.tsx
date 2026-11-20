@@ -6,6 +6,7 @@
  *   t=285          how many milliseconds into the round to freeze (the blows connect at 300)
  *   lag=0.28       seconds between the contact and the moment shown (the flash of the blow fades)
  *   yaw=30         how far the heads are turned toward the camera, in degrees
+ *   left=pete      who stands on the left, and  right=brute  on the right (ids from state/roster.ts; default: james and amy)
  *   yawR=95        the same for the right fighter, when it needs another one (default: the same as yaw)
  *   p=head.hand    the strike of the left fighter (zone.weapon); the right fighter takes it
  *   cam=0,3.2,11.2,2.18   a camera of its own: x,y,z of the position, then the height it looks at
@@ -14,6 +15,8 @@ import { createRoot } from 'react-dom/client'
 import { useEffect, useState } from 'react'
 import { WEAPONS, ZONES, type Weapon, type Zone } from './sim'
 import { arenaUrl, loadArenas, useArenas } from './state/arenas'
+import { useGame } from './state/game'
+import { FIGHTERS } from './state/roster'
 import { IMPACT } from './timing'
 import Arena3D from './ui/Arena3D'
 import type { FighterView, Stage } from './ui/arenaView'
@@ -28,6 +31,9 @@ function strike(param: string, fallback: string): { zone: Zone; weapon: Weapon }
     weapon: WEAPONS.find((w) => w === weapon) ?? 'hand',
   }
 }
+
+const who = (param: string, fallback: (typeof FIGHTERS)[number]) => FIGHTERS.find((f) => f.id === q.get(param)) ?? fallback
+useGame.setState({ fighters: { player: who('left', FIGHTERS[0]).id, enemy: who('right', FIGHTERS[1]).id } })
 
 const left = strike('p', 'head.hand')
 // one strike is staged: the left fighter strikes, the right one takes it (the strikes of a round come one after the other).

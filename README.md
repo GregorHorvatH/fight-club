@@ -63,12 +63,14 @@ Mixamo's licence allows its characters inside a game but not as files in a publi
 To use the characters:
 
 1. In Mixamo pick a character, **do not pick an animation**, Download: Format `FBX Binary (.fbx)`, Pose **`T-pose`**.
-2. Unzip each download into its own folder: `assets-src/james/`, `assets-src/amy/` (the big `.fbx` is the character).
-3. `pnpm models` converts them to `public/models/james.glb` and `public/models/amy.glb`: FBX to glTF, the 4096 px textures
+2. Unzip each download into its own folder: `assets-src/james/`, `assets-src/amy/` (the big `.fbx` is the character), or just put the
+   `.fbx` files into `characters/` (the file name, in lower case, is the name of the model: `Exo_Red.fbx` becomes `exo_red`).
+3. `pnpm models` converts them to `public/models/<name>.glb` (a model that is already made is skipped, `pnpm models --all` makes every
+   one again): FBX to glTF, the 4096 px textures
    shrunk to 1024 px and re-encoded as WebP (25-55 MB each become 1-3 MB). The fighters (name, model, face, height, whether they
    are there from the start) are listed in `src/state/roster.ts`.
-4. `pnpm portraits shot.png` cuts the faces for the tiles of the Select fighter screen (`public/models/<id>.webp`) out of a
-   screenshot of the poster scene (the command and the window size are at the top of `scripts/make-portraits.mjs`). Without a face
+4. `pnpm portraits <folder>` cuts the faces for the tiles of the Select fighter screen (`public/models/<id>.webp`) out of screenshots
+   of the poster scene, one per fighter (the address and the window size are at the top of `scripts/make-portraits.mjs`). Without a face
    a tile shows the first letter of the name.
 
 The models are loaded only when the 3D view is opened (like three.js itself).
@@ -105,8 +107,9 @@ pnpm build      # static site in dist/
 
 The main menu: **Tournament** (not made yet: a row of opponents, each beaten one becomes a fighter you can choose), **Arcade Mode** (one
 player against the enemy), **VS Mode** (two players, one screen) **Options** (not made yet) and **About** (the rules). Arcade and VS lead to a setup screen
-(difficulty, arena, view), then to **Select fighter**: a grid of faces (4 across in a wide window, 3 across in a tall one, 12 tiles),
-where the fighters that are not unlocked yet are "?" (nothing unlocks yet: the tournament is not made). Alone you choose your
+(difficulty, arena, view), then to **Select fighter**: a grid of faces (5 across in a wide window, 3 across in a tall one),
+where a fighter that is not unlocked is a "?" (everybody is unlocked for now: the tournament that unlocks them is not made, see
+`ALL_UNLOCKED` in `src/state/roster.ts`). Alone you choose your
 fighter and the enemy is another one; in VS Mode the first player chooses, then the second (not the same one). Then the fight.
 
 ## Controls

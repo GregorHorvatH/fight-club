@@ -1,6 +1,6 @@
 // Turns the Mixamo downloads in assets-src/<name>/ into the optimised models the 3D view uses: public/models/<name>.glb.
 //
-//   pnpm models           (after putting the characters, as FBX, in assets-src/amy/ and assets-src/james/)
+//   pnpm models           (after putting the characters, as FBX, in assets-src/<name>/ or as loose files in characters/)
 //
 // In Mixamo: pick a character, do NOT pick an animation, Download: Format "FBX Binary (.fbx)", Pose "T-pose". Unzip each download
 // into its own folder; the character is the big .fbx file (the animation packs next to it are not needed).
@@ -27,39 +27,58 @@ const src = join(root, 'assets-src')
 const out = join(root, 'public', 'models')
 const TEXTURE_SIZE = 1024
 
-if (!existsSync(src)) {
-  console.error('No assets-src/ folder: put the Mixamo characters (FBX) into assets-src/<name>/ first.')
+// Where the characters are: a folder per character in assets-src/<name>/ (the big .fbx in it), or a loose .fbx file in characters/
+// (the name of the file, lower case, is the name of the model: characters/Exo_Red.fbx -> exo_red).
+const characters = join(root, 'characters')
+const jobs = []
+if (existsSync(src)) {
+  for (const name of readdirSync(src)) {
+    const dir = join(src, name)
+    if (!statSync(dir).isDirectory()) continue
+    // the character is the largest .fbx (the animation clips next to it are small)
+    const fbx = readdirSync(dir)
+      .filter((f) => f.toLowerCase().endsWith('.fbx'))
+      .map((f) => ({ file: join(dir, f), size: statSync(join(dir, f)).size }))
+      .sort((a, b) => b.size - a.size)[0]
+    if (fbx) jobs.push({ name, ...fbx })
+    else console.warn(`${name}: no .fbx file, skipped`)
+  }
+}
+if (existsSync(characters)) {
+  for (const f of readdirSync(characters)) {
+    if (!f.toLowerCase().endsWith('.fbx')) continue
+    const name = f.slice(0, -4).toLowerCase()
+    if (!jobs.some((j) => j.name === name)) jobs.push({ name, file: join(characters, f), size: statSync(join(characters, f)).size })
+  }
+}
+if (jobs.length === 0) {
+  console.error('No characters: put the Mixamo downloads (FBX) into assets-src/<name>/ or as loose .fbx files into characters/ first.')
   process.exit(1)
 }
 mkdirSync(out, { recursive: true })
 const work = join(tmpdir(), `fight-club-models-${process.pid}`)
 mkdirSync(work, { recursive: true })
 
+// a model that is already made is left alone (--all makes every one again)
+const again = process.argv.includes('--all')
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS)
 let done = 0
-for (const name of readdirSync(src)) {
-  const dir = join(src, name)
-  if (!statSync(dir).isDirectory()) continue
-  // the character is the largest .fbx (the animation clips next to it are small)
-  const fbx = readdirSync(dir)
-    .filter((f) => f.toLowerCase().endsWith('.fbx'))
-    .map((f) => ({ f, size: statSync(join(dir, f)).size }))
-    .sort((a, b) => b.size - a.size)[0]
-  if (!fbx) {
-    console.warn(`${name}: no .fbx file, skipped`)
+for (const { name, file, size } of jobs) {
+  const target = join(out, `${name}.glb`)
+  if (!again && existsSync(target)) {
+    console.log(`${name}: already made, skipped (pnpm models --all makes it again)`)
     continue
   }
   const glb = join(work, `${name}.glb`)
-  await convert(join(dir, fbx.f), glb, [])
+  await convert(file, glb, [])
   const doc = await io.read(glb)
   await doc.transform(
     dedup(),
     prune(),
     textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [TEXTURE_SIZE, TEXTURE_SIZE], quality: 85 }),
   )
-  const target = join(out, `${name}.glb`)
   await io.write(target, doc)
-  console.log(`${name}: ${fbx.f} (${(fbx.size / 1e6).toFixed(1)} MB) -> public/models/${name}.glb (${(statSync(target).size / 1e6).toFixed(2)} MB)`)
+  console.log(`${name}: ${(size / 1e6).toFixed(1)} MB -> public/models/${name}.glb (${(statSync(target).size / 1e6).toFixed(2)} MB)`)
   done++
 }
 rmSync(work, { recursive: true, force: true })

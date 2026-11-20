@@ -45,9 +45,9 @@ function CameraRig({ backdrop, stand, fixed, floor }: { backdrop: boolean; stand
   return null
 }
 
-/** The poster page: the camera is where it was told to be and does not move. */
+/** The poster page: the camera is where it was told to be and does not move; it looks straight ahead (along -z), at the height `look`. */
 function FixedCamera({ look }: { look: number }) {
-  useFrame(({ camera }) => camera.lookAt(0, look, 0))
+  useFrame(({ camera }) => camera.lookAt(camera.position.x, look, 0))
   return null
 }
 

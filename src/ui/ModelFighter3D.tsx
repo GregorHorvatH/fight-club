@@ -18,6 +18,11 @@ import { addZoneAttribute, applyZoneFx, createHalo, createZoneFx, setZone, skinn
 /** The characters are the ones chosen (optimised Mixamo models, see scripts/prepare-models.mjs and state/roster.ts). */
 const TEAM = { player: '#2bb893', enemy: '#d9474c' } as const
 
+/** How much of the difference in the length of the trunk (hips to neck) is taken out: all of it (the arms, which still reach what they aim at, take up the shoulders coming down). */
+const TRUNK_FIT = 1
+
+const OVERLAY = /eyes?_?spec|tear_?line|occlusion/i
+
 const AIM_COLOR = '#ffc857'
 const SHIELD_COLOR = '#58b8ff'
 /** where the foot's ball and the front of the sole are, from the ankle (the driver's foot marker) */
@@ -36,17 +41,25 @@ interface Model {
   k: number
   /** the mesh is lifted by this much so the soles of its feet are on the floor */
   lift: number
+  /**
+   * How much the driver's trunk is squeezed toward the hips (1 = not at all). Characters whose trunk is shorter than the driver's
+   * (next to their legs) would be stretched between the hips and the head, and show it as a long neck: they get part of it back.
+   */
+  trunk: number
   /** how far along the hips -> neck path each spine bone is (from the rest pose) */
   spineAt: Record<'Spine' | 'Spine1' | 'Spine2', number>
   /** the length of a hand from the wrist to the knuckles (metres) */
   hand: number
   /** the head is enlarged to about the size of the target we aim at, and placed by the centre of the skull */
-  head: { scale: number; centre: Vector3; up: Vector3 }
+  head: { scale: number; centre: Vector3; up: Vector3; reach: number }
 }
 
 /** Makes this fighter's own copy of a character: its own skeleton and materials, the zone effects, the size. */
-function buildModel(scene: Object3D, team: string): Model {
+function buildModel(scene: Object3D, team: string, hide: readonly string[], maxHead: number): Model {
   const root = clone(scene)
+  // parts that are left out: the ones the fighter's entry names, and the see-through overlays of the eyes (the specular shell of the
+  // eyes, a tear line), which are drawn opaque here and would make the eyes black
+  for (const mesh of skinnedMeshes(root)) if (OVERLAY.test(mesh.name) || hide.some((h) => mesh.name.startsWith(h))) mesh.removeFromParent()
   const fx = createZoneFx()
   const tint = new Color('#ffffff').lerp(new Color(team), 0.22)
   const halos: SkinnedMesh[] = []
@@ -69,40 +82,48 @@ function buildModel(scene: Object3D, team: string): Model {
   }
   const rig = buildRig(root)
   const at = (n: string): Vector3 => rig.byName.get(n)!.restPos
-  const head = measureHead(skinnedMeshes(root)[0]!, at('Neck').y)
+  const head = measureHead(skinnedMeshes(root), at('Neck').y)
+  // the top of the head: its own bone, or (a few characters have none) the top of the head's vertices
+  const headTop = rig.byName.get('HeadTop_End')?.restPos ?? head.centre
   // sized by the legs (the hips are at the same height as the driver's), not by the height: a character with long legs is not squashed
   const k = (HIP_Y + ANKLE) / at('Hips').y
   fx.thick.value = 0.03 / k // the outline stands 0.03 off the body: thin
   const along = (n: string): number => (at(n).y - at('Hips').y) / (at('Neck').y - at('Hips').y)
   return {
     root, rig, fx, halos, k,
+    trunk: 1 - TRUNK_FIT * Math.max(0, 1 - ((at('Neck').y - at('Hips').y) * k) / (WAIST + NECK_UP)),
     lift: at('LeftFoot').y * k - ANKLE,
     spineAt: { Spine: along('Spine'), Spine1: along('Spine1'), Spine2: along('Spine2') },
     hand: at('LeftHandMiddle1').distanceTo(at('LeftHand')),
     head: {
       // the aimed-at head is a sphere of HEAD_R; the real head is smaller, so it is enlarged to meet the fists, but not to a bobblehead
-      scale: Math.min(1.25, Math.max(1, (HEAD_R * 0.8) / (head.radius * k))),
+      scale: Math.min(maxHead, Math.max(1, (HEAD_R * 0.8) / (head.radius * k))),
       centre: head.centre.clone().sub(at('Head')).applyQuaternion(rig.byName.get('Head')!.restQuat.clone().invert()),
       // which way the head's own "up" points in the rest pose: some characters' heads are bowed forward (James, by about 20 degrees);
       // standing the head up straight takes all of that out and leaves it looking at the sky, so only part of it is taken out
-      up: new Vector3(0, 1, 0).lerp(at('HeadTop_End').clone().sub(at('Head')).normalize(), 0.4).normalize(),
+      up: new Vector3(0, 1, 0).lerp(headTop.clone().sub(at('Head')).normalize(), 0.4).normalize(),
+      // how far its skull's centre is from the base of the neck: the neck keeps that length, the driver's neck may be longer
+      reach: head.centre.distanceTo(at('Neck')),
     },
   }
 }
 
 /** The middle and the size of the head of a character (the vertices that belong to the head zone, above the neck), in its rest pose. */
-function measureHead(mesh: SkinnedMesh, neckY: number): { centre: Vector3; radius: number } {
-  const pos = mesh.geometry.getAttribute('position')
-  const zone = mesh.geometry.getAttribute('zoneW')
+function measureHead(meshes: SkinnedMesh[], neckY: number): { centre: Vector3; radius: number } {
   const lo = new Vector3(Infinity, Infinity, Infinity)
   const hi = new Vector3(-Infinity, -Infinity, -Infinity)
   const v = new Vector3()
-  for (let i = 0; i < pos.count; i++) {
-    if (zone.getX(i) < 0.5) continue // not (mostly) the head
-    v.fromBufferAttribute(pos, i)
-    if (v.y < neckY + 0.015) continue
-    lo.min(v)
-    hi.max(v)
+  // a character can be made of several pieces (a face, a helmet, a weapon): the head is whatever of them belongs to the head zone
+  for (const mesh of meshes) {
+    const pos = mesh.geometry.getAttribute('position')
+    const zone = mesh.geometry.getAttribute('zoneW')
+    for (let i = 0; i < pos.count; i++) {
+      if (zone.getX(i) < 0.5) continue // not (mostly) the head
+      v.fromBufferAttribute(pos, i)
+      if (v.y < neckY + 0.015) continue
+      lo.min(v)
+      hi.max(v)
+    }
   }
   return { centre: lo.clone().add(hi).multiplyScalar(0.5), radius: (hi.x - lo.x + (hi.z - lo.z)) / 4 }
 }
@@ -127,7 +148,7 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
   const character = fighterOf(useGame((s) => s.fighters[side]))
   const height = character.height // how tall it is, relative to the driver skeleton (1 = as tall as the primitive fighter)
   const gltf = useLoader(GLTFLoader, `${import.meta.env.BASE_URL}${character.model}`)
-  const model = useMemo(() => buildModel(gltf.scene, TEAM[side]), [gltf, side])
+  const model = useMemo(() => buildModel(gltf.scene, TEAM[side], character.hide, character.headScale), [gltf, side, character])
   const time = useRef(settled ? 10 : 0)
   const joints = useRef<Partial<Record<JointName, Object3D>>>({})
   const reg: Reg = (name) => (o) => {
@@ -158,15 +179,18 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
     const point = (name: JointName): Vector3 => facing.worldToLocal(J[name]!.getWorldPosition(new Vector3())).applyAxisAngle(Y_AXIS, -Math.PI / 2).divideScalar(k)
     const limb = (s: 'Left' | 'Right'): Limb => ((s === 'Right') === near > 0 ? 'N' : 'F') // the figure's +z side is the character's right
     const hips = point('pelvis')
-    const waist = point('chest')
-    const neck = point('neck')
+    // the trunk (waist, neck, shoulders) is squeezed toward the hips by `trunk`; the head keeps the driver's direction from the neck
+    const squeeze = (p: Vector3): Vector3 => hips.clone().add(p.clone().sub(hips).multiplyScalar(model.trunk))
+    const waist = squeeze(point('chest'))
+    const neckOrig = point('neck')
+    const neck = squeeze(neckOrig)
     const headC = point('head')
     const path = (f: number): Vector3 => {
       const split = WAIST / (WAIST + NECK_UP) // the waist is this far along the way from the hips to the neck
       return f <= split ? hips.clone().lerp(waist, f / split) : waist.clone().lerp(neck, (f - split) / (1 - split))
     }
     const up = neck.clone().sub(waist).normalize()
-    const headDir = headC.clone().sub(neck).normalize()
+    const headDir = headC.clone().sub(neckOrig).normalize()
 
     const driven: Record<string, Vector3> = {
       Hips: hips,
@@ -178,7 +202,9 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
     const orient: Record<string, Orient> = {}
     for (const s of ['Left', 'Right'] as const) {
       const l = limb(s)
-      const arm = point(`shoulder${l}`)
+      const armDriver = point(`shoulder${l}`)
+      // the shoulders come down with the trunk (along the way up, not sideways)
+      const arm = armDriver.clone().addScaledVector(up, -(1 - model.trunk) * armDriver.clone().sub(hips).dot(up))
       const elbow = point(`elbow${l}`)
       const fist = point(`fist${l}`)
       const aim = fist.clone().sub(elbow).normalize()
@@ -205,7 +231,8 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
     orient.Head = {
       dir: headDir, lat: toward(1), rest: model.head.up,
       scale: model.head.scale,
-      anchor: { point: headC, local: model.head.centre.clone().multiplyScalar(model.head.scale) }, // the skull's centre is where the driver's head is
+      // the skull's centre is where the driver's head is, but no further from the neck than the character's own neck allows
+      anchor: { point: neck.clone().addScaledVector(headDir, Math.min(headC.distanceTo(neckOrig), model.head.reach)), local: model.head.centre.clone().multiplyScalar(model.head.scale) },
     }
     orient.LeftFoot = { lat: hipLat }
     orient.RightFoot = { lat: hipLat }

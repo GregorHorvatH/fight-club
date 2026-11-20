@@ -429,20 +429,29 @@ describe('choosing the fighter', () => {
     useGame.getState().toMenu()
     useGame.getState().openSetup(mode)
     useGame.setState({ fighters: { player: 'james', enemy: 'amy' } })
-    useGame.getState().setSelectColumns(4)
+    useGame.getState().setSelectColumns(5)
     handleKey('Enter') // Select fighter
   }
 
-  it('the tiles are the fighters, then "?" for the ones that do not exist yet; the starters can be chosen', () => {
-    expect(SLOTS).toBe(12)
-    expect(FIGHTERS.every((f) => f.starter)).toBe(true)
+  it('there is a tile for every fighter, james and amy first; the ids are all different', () => {
+    expect(FIGHTERS.length).toBeLessThanOrEqual(SLOTS)
+    expect(new Set(FIGHTERS.map((f) => f.id)).size).toBe(FIGHTERS.length)
     expect(slotFighter(0)?.id).toBe('james')
-    expect(slotFighter(FIGHTERS.length)).toBeNull()
-    expect(isUnlocked(FIGHTERS[0])).toBe(true)
+    expect(slotFighter(1)?.id).toBe('amy')
+    expect(slotFighter(SLOTS)).toBeNull()
   })
 
-  it('4 across in a wide window (3 rows), 3 across in a tall one (4 rows)', () => {
-    expect(columnsFor(false)).toBe(4)
+  it('everybody can be chosen for now (nothing unlocks them yet), the starters in any case', () => {
+    expect(FIGHTERS.every((f) => isUnlocked(f))).toBe(true)
+    expect(FIGHTERS.filter((f) => f.starter).map((f) => f.id)).toEqual(['james', 'amy'])
+  })
+
+  it('every tile is full and the grid has no gaps in both layouts', () => {
+    for (const portrait of [false, true]) expect(SLOTS % columnsFor(portrait)).toBe(0)
+  })
+
+  it('5 across in a wide window (3 rows), 3 across in a tall one (5 rows)', () => {
+    expect(columnsFor(false)).toBe(5)
     expect(columnsFor(true)).toBe(3)
   })
 
@@ -454,18 +463,18 @@ describe('choosing the fighter', () => {
     expect(useGame.getState().selectCursor).toBe(1)
     handleKey('ArrowLeft')
     handleKey('ArrowLeft') // wraps to the end of the row
-    expect(useGame.getState().selectCursor).toBe(3)
+    expect(useGame.getState().selectCursor).toBe(4)
     handleKey('ArrowDown')
-    expect(useGame.getState().selectCursor).toBe(7)
+    expect(useGame.getState().selectCursor).toBe(9)
     handleKey('ArrowDown')
-    expect(useGame.getState().selectCursor).toBe(11)
+    expect(useGame.getState().selectCursor).toBe(14)
     handleKey('ArrowDown')
     expect(useGame.getState().selectCursor).toBe(SLOTS) // Back
     handleKey('ArrowUp')
-    expect(useGame.getState().selectCursor).toBe(SLOTS - 4)
+    expect(useGame.getState().selectCursor).toBe(SLOTS - 5)
   })
 
-  it('with 3 across the rows are shorter and there are 4 of them', () => {
+  it('with 3 across the rows are shorter and there are 5 of them', () => {
     open('solo')
     useGame.getState().setSelectColumns(3)
     handleKey('ArrowDown')
@@ -483,14 +492,19 @@ describe('choosing the fighter', () => {
     const g = useGame.getState()
     expect(g.phase).toBe('choose')
     expect(g.fighters.player).toBe('amy')
-    expect(g.fighters.enemy).toBe('james')
+    expect(g.fighters.enemy).not.toBe('amy')
   })
 
-  it('a "?" cannot be chosen', () => {
-    open('solo')
-    useGame.getState().pointSelect(5)
-    handleKey('Enter')
-    expect(useGame.getState().phase).toBe('select')
+  it('any fighter can be chosen, and the enemy is never the same one', () => {
+    for (let slot = 0; slot < FIGHTERS.length; slot++) {
+      open('solo')
+      useGame.getState().pointSelect(slot)
+      handleKey('Enter')
+      const g = useGame.getState()
+      expect(g.phase).toBe('choose')
+      expect(g.fighters.player).toBe(FIGHTERS[slot]!.id)
+      expect(g.fighters.enemy).not.toBe(g.fighters.player)
+    }
   })
 
   it('Back (or Esc) returns to the setup', () => {
@@ -531,8 +545,7 @@ describe('choosing the fighter', () => {
     expect(useGame.getState().phase).toBe('setup')
   })
 
-  it('the rival of a fighter is another one', () => {
-    expect(rivalOf('james', () => 0.99)).toBe('amy')
-    expect(rivalOf('amy', () => 0)).toBe('james')
+  it('the rival of a fighter is another one, whatever the dice say', () => {
+    for (const f of FIGHTERS) for (const r of [0, 0.5, 0.999]) expect(rivalOf(f.id, () => r)).not.toBe(f.id)
   })
 })

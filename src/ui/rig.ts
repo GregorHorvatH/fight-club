@@ -156,9 +156,9 @@ export function poseRig(rig: Rig, driven: Readonly<Record<string, Vector3>>, ori
     let dir = o?.dir
     if (!dir && childName && driven[childName]) dir = driven[childName]!.clone().sub(pos)
     let quat: Quaternion
-    if (dir && child) {
+    if (dir && (child || o?.rest)) {
       dir = dir.clone().normalize()
-      const restDir = o?.rest?.clone().normalize() ?? child.restPos.clone().sub(rb.restPos).normalize()
+      const restDir = o?.rest?.clone().normalize() ?? child!.restPos.clone().sub(rb.restPos).normalize()
       const rot = o?.lat
         ? new Quaternion().setFromRotationMatrix(new Matrix4().multiplyMatrices(frame(dir, o.lat), frame(restDir, o.restLat ?? X).invert()))
         : new Quaternion().setFromUnitVectors(restDir, dir)
