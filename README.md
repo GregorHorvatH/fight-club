@@ -72,8 +72,8 @@ The models are loaded only when the 3D view is opened (like three.js itself).
 
 ## Arenas (backgrounds, optional)
 
-The start screen lets you choose the arena to fight in: a picture behind the fighters, in 2D and in 3D (the 3D scene is transparent
-and its floor only catches the shadows). The choice is remembered; `B` on the start screen goes to the next one, and "Plain" is the
+The setup screen lets you choose the arena to fight in: a picture behind the fighters, in 2D and in 3D (the 3D scene is transparent
+and its floor only catches the shadows). The choice is remembered; `B` on the setup screen goes to the next one, and "Plain" is the
 dark arena without a picture. The pictures are not in git (stock pictures usually may be used in a game but not redistributed as
 files, and may need a credit: check the licence of yours), so without them the game simply has no choice to offer.
 
@@ -98,6 +98,12 @@ pnpm check      # typecheck + lint + tests
 pnpm build      # static site in dist/
 ```
 
+## Game modes
+
+The main menu: **Tournament** (not made yet: a row of opponents, each beaten one becomes a fighter you can choose), **Arcade Mode** (one
+player against the enemy), **VS Mode** (two players, one screen) **Options** (not made yet) and **About** (the rules). Arcade and VS lead to a setup screen
+(difficulty, arena, view), then the fight.
+
 ## Controls
 
 Mouse or touch: tap a fighter to choose a zone (see above), then the punch / kick buttons and the fight button. With the keyboard, the nine
@@ -112,10 +118,12 @@ keys of a player are laid out like the old picture, left to right and top to bot
 | Input | Action |
 |---|---|
 | `Enter` / `Space` | confirm for whoever is choosing (fight, lock in), skip the replay, start, play again |
-| `1` `2` `3` | difficulty (title screen) |
-| `P` | 1 or 2 players (title screen) |
-| `V` | 2D / 3D view (also two buttons on the title screen) |
-| `B` | the next arena (title screen) |
+| `↑` `↓` (or `W` `S`) | move the cursor in the main menu |
+| `1` `2` `3` | difficulty (setup screen, arcade) |
+| `V` | 2D / 3D view (also two buttons on the setup screen) |
+| `B` | the next arena (setup screen) |
+| `Esc` | back to the main menu (from the about, setup and end screens) |
+| `Esc` in a fight | pause (also the ⏸ button in the header): `↑` `↓` and `Enter` choose Continue or Reset (= the main menu); `Esc` continues |
 | `M` | mute |
 
 Between two people the second player's keys are `I` `J` `,` (guard head / body / legs), `O` `K` `.` (punch, kick, fight) and `P` `L` `/` (strike

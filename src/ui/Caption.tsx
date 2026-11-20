@@ -21,11 +21,12 @@ function reason(r: RoundResult, by: Initiative, name: string): string {
 export function Captions() {
   const last = useGame((s) => s.last)
   const phase = useGame((s) => s.phase)
+  const replay = useGame((s) => s.replay)
   if (phase !== 'reveal' || !last) return null
   const names = NAMES.solo
   const tl = timelineOf(last)
   return (
-    <div className="captions" aria-live="polite" key={last.round}>
+    <div className="captions" aria-live="polite" key={`${last.round}-${replay}`}>
       {tl.order.map((side: Side, i) => {
         const s = last.strikes[side]!
         const other: Side = side === 'player' ? 'enemy' : 'player'

@@ -37,21 +37,28 @@ export function Hud() {
   const round = useGame((s) => s.match.round)
   const phase = useGame((s) => s.phase)
   const mode = useGame((s) => s.mode)
+  const inFight = phase === 'choose' || phase === 'reveal' || phase === 'over'
   const level = useSettings((s) => s.difficulty)
   const muted = useSettings((s) => s.muted)
   const view = useSettings((s) => s.view)
+  const pause = useGame((s) => s.pause)
   const toggleMute = useSettings((s) => s.toggleMute)
   const toggleView = useSettings((s) => s.toggleView)
   return (
     <header className="hud">
       <Bar side="player" />
       <div className="center">
-        <div className="round">{phase === 'title' ? 'FIGHT CLUB' : `ROUND ${phase === 'choose' ? round + 1 : round}`}</div>
+        <div className="round">{!inFight ? 'FIGHT CLUB' : `ROUND ${phase === 'choose' ? round + 1 : round}`}</div>
         <div className="level">
-          {mode === 'duo' && phase !== 'title' ? '2 players' : level}
+          {mode === 'duo' && inFight ? '2 players' : level}
           <button className="icon" onClick={toggleView} aria-label={`Switch to ${view === '2d' ? '3D' : '2D'} (V)`} title="V">
             {view === '2d' ? '3D' : '2D'}
           </button>
+          {(phase === 'choose' || phase === 'reveal') && (
+            <button className="icon" onClick={pause} aria-label="Pause (Esc)" title="Esc">
+              ⏸
+            </button>
+          )}
           <button className="icon" onClick={toggleMute} aria-label={muted ? 'Unmute (M)' : 'Mute (M)'} title="M">
             {muted ? '🔇' : '🔊'}
           </button>

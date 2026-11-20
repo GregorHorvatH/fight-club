@@ -5,6 +5,7 @@ vi.mock('../src/audio/synth', () => ({ play: () => undefined }))
 const { BUTTONS, KEYS, buttonCode, buttonKey, handleKey, zoneCode, zoneKey } = await import('../src/input')
 const { useGame } = await import('../src/state/game')
 const { useSettings } = await import('../src/state/settings')
+const { MENU, useMenu } = await import('../src/state/menu')
 const { ZONES } = await import('../src/sim')
 const { IDLE_MS, STEP_TEXT, idleHint, stepOf } = await import('../src/ui/steps')
 
@@ -234,5 +235,160 @@ describe('the hint for a player who does not choose', () => {
   it('says nothing when the choice is complete or already locked in (the fight button is ready)', () => {
     expect(idleHint('ready', 'James', 'Amy')).toBe('')
     expect(idleHint('locked', 'James', 'Amy')).toBe('')
+  })
+})
+
+describe('the main menu', () => {
+  it('about shows the description of the game, and Esc or Enter goes back', () => {
+    useGame.getState().toMenu()
+    useMenu.setState({ cursor: 'about', soon: null })
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('about')
+    handleKey('Escape')
+    expect(useGame.getState().phase).toBe('menu')
+    handleKey('Enter')
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('menu')
+  })
+
+  beforeEach(() => {
+    useGame.getState().toMenu()
+    useMenu.setState({ cursor: 'arcade', soon: null })
+  })
+
+  it('has tournament, arcade, versus, options and about, and the cursor starts on arcade', () => {
+    expect(MENU).toEqual(['tournament', 'arcade', 'versus', 'options', 'about'])
+    expect(useGame.getState().phase).toBe('menu')
+    expect(useMenu.getState().cursor).toBe('arcade')
+  })
+
+  it('the arrows move the cursor and wrap around', () => {
+    handleKey('ArrowDown')
+    expect(useMenu.getState().cursor).toBe('versus')
+    handleKey('ArrowDown')
+    handleKey('ArrowDown')
+    handleKey('ArrowDown')
+    expect(useMenu.getState().cursor).toBe('tournament')
+    handleKey('ArrowUp')
+    expect(useMenu.getState().cursor).toBe('about')
+  })
+
+  it('arcade opens the setup for one player, versus for two', () => {
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('setup')
+    expect(useSettings.getState().mode).toBe('solo')
+    handleKey('Escape')
+    expect(useGame.getState().phase).toBe('menu')
+    handleKey('ArrowDown')
+    handleKey('Space')
+    expect(useGame.getState().phase).toBe('setup')
+    expect(useSettings.getState().mode).toBe('duo')
+  })
+
+  it('tournament and options are only places in the menu for now: they say so and start nothing', () => {
+    handleKey('ArrowUp')
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('menu')
+    expect(useMenu.getState().soon).toBe('tournament')
+    handleKey('ArrowDown') // moving the cursor takes the message away
+    expect(useMenu.getState().soon).toBeNull()
+  })
+
+  it('on the setup screen up / down move between Start and Back, and Enter chooses: the cursor starts on Start', () => {
+    handleKey('Enter') // arcade
+    expect(useGame.getState().setupItem).toBe('start')
+    handleKey('ArrowDown')
+    expect(useGame.getState().setupItem).toBe('back')
+    handleKey('ArrowDown') // wraps around
+    expect(useGame.getState().setupItem).toBe('start')
+    handleKey('ArrowUp')
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('menu')
+    handleKey('Enter') // the setup again: the cursor is back on Start
+    expect(useGame.getState().setupItem).toBe('start')
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('choose')
+  })
+
+  it('from the setup Enter starts the fight, and the end screen goes back to the menu with Esc', () => {
+    handleKey('Enter')
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('choose')
+    useGame.setState({ phase: 'over' })
+    handleKey('Escape')
+    expect(useGame.getState().phase).toBe('menu')
+  })
+})
+
+describe('the pause', () => {
+  beforeEach(() => {
+    useSettings.setState({ mode: 'solo' })
+    useGame.getState().start()
+  })
+  const press = (...codes: string[]) => codes.forEach((c) => handleKey(c))
+
+  it('Esc pauses a fight, and nothing can be chosen while it is paused', () => {
+    press('Escape')
+    expect(useGame.getState().paused).toBe(true)
+    press('KeyE', 'KeyQ', 'KeyS') // strike, guard, kick
+    useGame.getState().tap('enemy', 'head')
+    expect(useGame.getState().choice.player).toMatchObject({ attack: null, block: null, weapon: 'hand' })
+  })
+
+  it('Esc, Enter or Space continue (the cursor is on Continue), and the fight is where it was', () => {
+    press('KeyE', 'Escape')
+    for (const code of ['Escape', 'Enter', 'Space']) {
+      useGame.getState().pause()
+      expect(useGame.getState().paused).toBe(true)
+      press(code)
+      expect(useGame.getState().paused).toBe(false)
+    }
+    expect(useGame.getState().choice.player.attack).toBe('head')
+    expect(useGame.getState().phase).toBe('choose')
+  })
+
+  it('the pause window is a list: up / down move the cursor, Enter chooses; Continue is first', () => {
+    press('Escape')
+    expect(useGame.getState().pauseItem).toBe('continue')
+    press('ArrowDown')
+    expect(useGame.getState().pauseItem).toBe('reset')
+    press('ArrowDown') // wraps around
+    expect(useGame.getState().pauseItem).toBe('continue')
+    press('ArrowUp')
+    expect(useGame.getState().pauseItem).toBe('reset')
+    press('ArrowUp', 'Enter')
+    expect(useGame.getState().paused).toBe(false)
+    expect(useGame.getState().phase).toBe('choose')
+  })
+
+  it('Reset leaves the fight for the main menu', () => {
+    press('KeyE', 'KeyQ', 'Escape', 'ArrowDown', 'Enter')
+    const g = useGame.getState()
+    expect(g.paused).toBe(false)
+    expect(g.phase).toBe('menu')
+    expect(g.choice.player.attack).toBeNull()
+  })
+
+  it('the cursor of the next pause starts on Continue again', () => {
+    press('Escape', 'ArrowDown', 'Escape', 'Escape')
+    expect(useGame.getState().pauseItem).toBe('continue')
+  })
+
+  it('a round that is being replayed does not move on while paused, and is replayed again on Continue', () => {
+    press('KeyE', 'KeyQ', 'KeyX')
+    expect(useGame.getState().phase).toBe('reveal')
+    const replay = useGame.getState().replay
+    press('Escape')
+    press('Enter') // would skip the replay if it were not paused: here it chooses Continue
+    expect(useGame.getState().phase).toBe('reveal')
+    expect(useGame.getState().replay).toBe(replay + 1)
+  })
+
+  it('there is nothing to pause in the menu', () => {
+    useGame.getState().toMenu()
+    handleKey('Escape')
+    expect(useGame.getState().paused).toBe(false)
+    useGame.getState().pause()
+    expect(useGame.getState().paused).toBe(false)
   })
 })

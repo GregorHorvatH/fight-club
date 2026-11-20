@@ -85,6 +85,7 @@ export function Hint() {
   const names = NAMES[mode]
   const me = names[turn]
   const other = names[turn === 'player' ? 'enemy' : 'player']
+  if (phase === 'menu' || phase === 'about' || phase === 'setup') return null // no fight yet: nothing to explain
   const missing = phase === 'choose' && idle && (step === 'guard' || step === 'strike' || step === 'both') ? idleHint(step, mode === 'duo' ? 'yourself' : me, other) : ''
   if (mode === 'duo') {
     return (

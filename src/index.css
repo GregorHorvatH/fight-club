@@ -197,7 +197,13 @@ kbd {
 .link { display: block; margin: 12px auto 0; background: none; border: 0; color: var(--dim); text-decoration: underline; }
 
 /* the arena choice on the title screen */
-.arenas { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.arena-row { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 10px; }
+.arenas { display: flex; gap: 8px; min-width: 0; padding: 2px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; }
+.arenas::-webkit-scrollbar { display: none; }
+.arenas::before, .arenas::after { content: ''; margin: auto; } /* centred while everything fits, from the left edge once it does not */
+.arena-opt { flex: none; scroll-snap-align: center; }
+.nudge { flex: none; width: 28px; height: 40px; font-size: 1.4rem; line-height: 1; color: var(--dim); background: none; border: 0; border-radius: 8px; }
+.nudge:hover { color: var(--text); background: var(--panel-2); }
 .arena-opt { width: 88px; padding: 0 0 4px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: .72rem; font-weight: 700; }
 .arena-opt img, .arena-opt .plain { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; margin-bottom: 3px; }
 .arena-opt .plain { background: linear-gradient(180deg, #15131d, #0b0a10); }
@@ -291,3 +297,24 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; transition-delay: 0s !important; }
 }
+
+/* ---- the main menu: a list with the cursor on one item, like an old fighting game ---- */
+.menu h1 { margin-bottom: 18px; }
+.items { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.item {
+  width: 100%; padding: 12px 18px; font: inherit; font-size: 1.15rem; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
+  background: transparent; border: 1px solid transparent; border-radius: 10px; transition: color .12s, background .12s, transform .08s;
+}
+.item.on { color: #1a1205; background: linear-gradient(180deg, #ffd777, var(--gold)); box-shadow: 0 3px 0 #b88a1f, 0 6px 20px #ffc85730; }
+.item:active { transform: translateY(2px); }
+.item small { margin-left: 10px; padding: 1px 7px; font-size: .55rem; letter-spacing: .1em; border: 1px solid currentColor; border-radius: 999px; vertical-align: middle; opacity: .75; }
+.item.soon:not(.on) { opacity: .7; }
+.blurbs { display: grid; }
+.blurbs .blurb { grid-area: 1 / 1; }
+.item:focus-visible { outline: none; } /* the cursor is the highlight */
+.screen h2 { margin: 12px 0 6px; font-size: 1rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
+.screen .go.big { width: 240px; max-width: 100%; padding-left: 0; padding-right: 0; } /* Start, Back, Fight again: one width on every screen */
+
+/* the pause window: the scrim catches every tap meant for the fight underneath */
+.scrim { position: fixed; inset: 0; z-index: 9; }
+.choose-row + .items { margin-top: 18px; } /* Start / Back under the settings of the setup screen */

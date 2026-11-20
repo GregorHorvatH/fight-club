@@ -5,8 +5,16 @@ import { createMatch, playRound, resolveRound, type Match, type Move, type Rng, 
 import { useBest } from './best'
 import { useSettings, type Mode } from './settings'
 
-/** title -> choose -> reveal -> (choose -> reveal)* -> over */
-export type Phase = 'title' | 'choose' | 'reveal' | 'over'
+/** menu -> (about | setup -> choose -> reveal -> (choose -> reveal)* -> over) and back to the menu */
+export type Phase = 'menu' | 'about' | 'setup' | 'choose' | 'reveal' | 'over'
+
+/** The items of the pause window, top to bottom. Reset leaves the fight for the main menu. */
+export const PAUSE_ITEMS = ['continue', 'reset'] as const
+export type PauseItem = (typeof PAUSE_ITEMS)[number]
+
+/** The items under the settings of the setup screen, top to bottom. */
+export const SETUP_ITEMS = ['start', 'back'] as const
+export type SetupItem = (typeof SETUP_ITEMS)[number]
 
 /** What one player has picked so far for the coming round. */
 export interface Choice {
@@ -38,6 +46,32 @@ interface Game {
   matchId: number
   /** the zone of a fighter the pointer is over (while choosing): it lights up as a preview of the pick */
   hover: { side: Side; zone: Zone } | null
+  /** the fight is paused: a window with Continue and Reset is up and nothing can be chosen */
+  paused: boolean
+  /** counts the replays started over after a pause: it restarts the animations and the counting of the strikes */
+  replay: number
+  pause: () => void
+  /** Continue: back to the choosing, or the replay of the round starts again from its beginning */
+  resume: () => void
+  /** the item of the pause window the cursor is on */
+  pauseItem: PauseItem
+  /** move the cursor of the pause window by `step` items (wraps around) */
+  movePause: (step: number) => void
+  pointPause: (item: PauseItem) => void
+  /** choose the item under the cursor (or `item`): Continue, or Reset, which leaves the fight for the main menu */
+  choosePause: (item?: PauseItem) => void
+  /** the main menu: leave whatever is on screen */
+  toMenu: () => void
+  /** from the menu to the setup of a game for one player (arcade) or two (versus) */
+  openSetup: (mode: Mode) => void
+  /** the item of the setup screen the cursor is on */
+  setupItem: SetupItem
+  moveSetup: (step: number) => void
+  pointSetup: (item: SetupItem) => void
+  /** choose the item under the cursor (or `item`): start the fight, or go back to the menu */
+  chooseSetup: (item?: SetupItem) => void
+  /** from the menu to the description of the game */
+  openAbout: () => void
   start: () => void
   /** `weapon` is given when the caller chooses the weapon together with the zone (the 3D poster, tests); otherwise it stays as it was */
   pickAttack: (side: Side, zone: Zone, weapon?: Weapon) => void
@@ -54,7 +88,6 @@ interface Game {
   lock: (side: Side) => void
   /** leave the reveal: next round, or the end screen when the match is decided */
   next: () => void
-  toTitle: () => void
 }
 
 /** The sounds of a replay that are still to come: they stop when the replay is skipped. */
@@ -90,7 +123,7 @@ export const useGame = create<Game>((set, get) => {
   /** a player can still change their mind during the choosing phase, unless they have locked in */
   const editable = (side: Side): boolean => {
     const { phase, choice, mode } = get()
-    return phase === 'choose' && !choice[side].locked && (mode === 'solo' || side === turnOf(choice, mode))
+    return phase === 'choose' && !get().paused && !choice[side].locked && (mode === 'solo' || side === turnOf(choice, mode))
   }
   const update = (side: Side, patch: Partial<Choice>) => set({ choice: { ...get().choice, [side]: { ...get().choice[side], ...patch } } })
   const moveOf = (c: Choice): Move => ({ attack: c.attack!, weapon: c.weapon, block: c.block! })
@@ -106,18 +139,87 @@ export const useGame = create<Game>((set, get) => {
   }
 
   return {
-    phase: 'title',
+    phase: 'menu',
     mode: 'solo',
     match: createMatch('normal'),
     choice: fresh(),
     last: null,
     matchId: 0,
     hover: null,
+    paused: false,
+    replay: 0,
+
+    pause: () => {
+      const { phase, paused } = get()
+      if (paused || (phase !== 'choose' && phase !== 'reveal')) return
+      stopSounds() // the sounds of the replay that are still to come
+      set({ paused: true, pauseItem: 'continue', hover: null })
+    },
+
+    resume: () => {
+      const { paused, phase, last, replay } = get()
+      if (!paused) return
+      if (phase === 'reveal' && last) {
+        scheduleSounds(last)
+        set({ paused: false, replay: replay + 1 })
+      } else set({ paused: false })
+    },
+
+    pauseItem: 'continue',
+
+    movePause: (step) => {
+      if (!get().paused) return
+      const i = PAUSE_ITEMS.indexOf(get().pauseItem)
+      play('select')
+      set({ pauseItem: PAUSE_ITEMS[(i + step + PAUSE_ITEMS.length) % PAUSE_ITEMS.length]! })
+    },
+
+    pointPause: (item) => {
+      if (get().paused && get().pauseItem !== item) set({ pauseItem: item })
+    },
+
+    choosePause: (item = get().pauseItem) => {
+      if (!get().paused) return
+      play('select')
+      if (item === 'continue') get().resume()
+      else get().toMenu()
+    },
+
+    toMenu: () => {
+      stopSounds()
+      set({ phase: 'menu', paused: false, last: null, choice: fresh() })
+    },
+
+    openSetup: (mode) => {
+      useSettings.getState().setMode(mode)
+      set({ phase: 'setup', mode, setupItem: 'start', paused: false, last: null, choice: fresh() })
+    },
+
+    setupItem: 'start',
+
+    moveSetup: (step) => {
+      if (get().phase !== 'setup') return
+      const i = SETUP_ITEMS.indexOf(get().setupItem)
+      play('select')
+      set({ setupItem: SETUP_ITEMS[(i + step + SETUP_ITEMS.length) % SETUP_ITEMS.length]! })
+    },
+
+    pointSetup: (item) => {
+      if (get().phase === 'setup' && get().setupItem !== item) set({ setupItem: item })
+    },
+
+    chooseSetup: (item = get().setupItem) => {
+      if (get().phase !== 'setup') return
+      if (item === 'start') get().start()
+      else get().toMenu()
+    },
+
+    openAbout: () => set({ phase: 'about' }),
 
     start: () => {
       stopSounds()
       const { mode, difficulty } = useSettings.getState()
-      set({ phase: 'choose', mode, match: createMatch(difficulty), choice: fresh(), last: null, matchId: get().matchId + 1 })
+      set({ phase: 'choose', mode, paused: false, match: createMatch(difficulty), choice: fresh(), last: null, matchId: get().matchId + 1 })
     },
 
     pickAttack: (side, zone, weapon) => {
@@ -139,22 +241,22 @@ export const useGame = create<Game>((set, get) => {
     },
 
     tap: (side, zone) => {
-      const { phase, mode, choice } = get()
-      if (phase !== 'choose') return
+      const { phase, mode, choice, paused } = get()
+      if (phase !== 'choose' || paused) return
       const me = turnOf(choice, mode)
       if (side === me) get().pickBlock(me, zone)
       else get().pickAttack(me, zone)
     },
 
     setHover: (h) => {
-      const { phase, hover } = get()
-      const next = phase === 'choose' ? h : null
+      const { phase, hover, paused } = get()
+      const next = phase === 'choose' && !paused ? h : null
       if (next?.side !== hover?.side || next?.zone !== hover?.zone) set({ hover: next })
     },
 
     lock: (side) => {
-      const { phase, mode, choice } = get()
-      if (phase !== 'choose' || !complete(choice[side]) || choice[side].locked) return
+      const { phase, mode, choice, paused } = get()
+      if (phase !== 'choose' || paused || !complete(choice[side]) || choice[side].locked) return
       if (mode === 'solo') {
         if (side === 'player') fight()
         return
@@ -166,8 +268,8 @@ export const useGame = create<Game>((set, get) => {
     },
 
     next: () => {
-      const { phase, match, mode } = get()
-      if (phase !== 'reveal') return
+      const { phase, match, mode, paused } = get()
+      if (phase !== 'reveal' || paused) return
       stopSounds()
       if (match.status === 'fighting') {
         set({ phase: 'choose', choice: fresh(), last: null })
@@ -176,11 +278,6 @@ export const useGame = create<Game>((set, get) => {
       if (mode === 'solo') useBest.getState().record(match) // a duel between two people is not your record
       play(mode === 'duo' || match.status === 'won' ? 'win' : 'lose')
       set({ phase: 'over' })
-    },
-
-    toTitle: () => {
-      stopSounds()
-      set({ phase: 'title', last: null, choice: fresh() })
     },
   }
 })

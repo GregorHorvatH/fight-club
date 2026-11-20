@@ -18,10 +18,11 @@ export function Arena() {
   const arena = pickArena(useArenas((s) => s.list), useSettings((s) => s.arena))
   const phase = useGame((s) => s.phase)
   const round = useGame((s) => s.match.round)
+  const replay = useGame((s) => s.replay)
   const player = useFighterView('player')
   const enemy = useFighterView('enemy')
   // a new key per round / phase restarts the animations
-  const key = `${round}-${phase}`
+  const key = `${round}-${phase}-${replay}`
   const settled = phase === 'over'
   const { ref, floor } = useFloor(usePortrait())
   return (
