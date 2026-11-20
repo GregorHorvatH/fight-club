@@ -1,10 +1,11 @@
 import { chooseMove } from './ai'
 import { MAX_HP } from './config'
 import type { Rng } from './rng'
-import { resolveStrike, type RoundResult } from './round'
-import type { Difficulty, Move, Side } from './types'
+import { resolveStrike, whoFirst, type RoundResult, type Strike } from './round'
+import { opponent, type Difficulty, type Move, type Side } from './types'
 
-export type MatchStatus = 'fighting' | 'won' | 'lost' | 'draw'
+/** There is no draw: the strikes come one after the other, and a knockout stops the round. */
+export type MatchStatus = 'fighting' | 'won' | 'lost'
 
 export interface Match {
   difficulty: Difficulty
@@ -27,36 +28,43 @@ export function createMatch(difficulty: Difficulty): Match {
   }
 }
 
-/** Resolves one round from both fighters' moves (two humans, or a human and an enemy move). Returns a new match. */
+/**
+ * Resolves one round from both fighters' moves (two people, or a person and an enemy move). Both have chosen secretly and at once;
+ * the strikes then come one after the other: the faster one first. A strike that knocks the other fighter out (or a kick whose
+ * stumble does) ends the round: the loser does not strike back. Returns a new match.
+ */
 export function resolveRound(m: Match, moves: Record<Side, Move>, rng: Rng): { match: Match; result: RoundResult } {
   if (m.status !== 'fighting') throw new Error('the match is over')
-  const strikes = {
-    player: resolveStrike(moves.player.attack, moves.player.weapon, moves.enemy.block, m.streak.player, rng),
-    enemy: resolveStrike(moves.enemy.attack, moves.enemy.weapon, moves.player.block, m.streak.enemy, rng),
-  }
-  // a strike hurts the other fighter; a guarded kick also hurts the kicker
-  const hp = {
-    player: Math.max(0, m.hp.player - strikes.enemy.damage - strikes.player.recoil),
-    enemy: Math.max(0, m.hp.enemy - strikes.player.damage - strikes.enemy.recoil),
-  }
+  const { first, by } = whoFirst(moves, m.hp, rng)
+  const hp = { ...m.hp }
+  const strikes: Record<Side, Strike | null> = { player: null, enemy: null }
   const streak = { ...m.streak }
-  for (const side of ['player', 'enemy'] as const) {
-    streak[side] = strikes[side].blocked ? 0 : m.streak[side] + 1
+  const strike = (a: Side): void => {
+    const d = opponent(a)
+    const s = resolveStrike(moves[a].attack, moves[a].weapon, moves[d].block, m.streak[a], rng)
+    strikes[a] = s
+    streak[a] = s.blocked ? 0 : m.streak[a] + 1
+    // a strike hurts the other fighter; a guarded kick also hurts the kicker
+    hp[d] = Math.max(0, hp[d] - s.damage)
+    hp[a] = Math.max(0, hp[a] - s.recoil)
   }
+  strike(first)
+  const hpAfterFirst = { ...hp }
+  if (hp.player > 0 && hp.enemy > 0) strike(opponent(first))
   const round = m.round + 1
-  const result: RoundResult = { round, moves, strikes, hp }
-  const status: MatchStatus =
-    hp.player === 0 && hp.enemy === 0 ? 'draw' : hp.enemy === 0 ? 'won' : hp.player === 0 ? 'lost' : 'fighting'
+  const result: RoundResult = { round, moves, first, firstBy: by, strikes, hpBefore: m.hp, streakBefore: m.streak, hpAfterFirst, hp }
+  const status: MatchStatus = hp.enemy === 0 ? 'won' : hp.player === 0 ? 'lost' : 'fighting'
   return { match: { ...m, round, hp, streak, log: [...m.log, result], status }, result }
 }
 
-/** Plays one round against the enemy AI: it picks its move from your past rounds, then both strikes are resolved. */
+/** Plays one round against the enemy AI: it picks its move from your past rounds, then the strikes are resolved. */
 export function playRound(m: Match, playerMove: Move, rng: Rng): { match: Match; result: RoundResult } {
   if (m.status !== 'fighting') throw new Error('the match is over')
   const enemy = chooseMove(
     m.log.map((r) => r.moves.player),
     m.difficulty,
     rng,
+    m.hp.enemy,
   )
   return resolveRound(m, { player: playerMove, enemy }, rng)
 }

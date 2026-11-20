@@ -20,3 +20,17 @@ export const STEP_TEXT: Record<Step, string> = {
   ready: '',
   locked: '',
 }
+
+/** How long the player may do nothing before the hint comes up (they may have forgotten what to do, or why the fight button is grey). */
+export const IDLE_MS = 3000
+
+/**
+ * What to tell a player who has not chosen for a while: what is still missing and where to tap. `me` is how to call the fighter who guards (the
+ * player's own: "James", or "yourself" when two people are told) and `other` the one who is struck. Nothing when the choice is complete.
+ */
+export function idleHint(step: Step, me: string, other: string): string {
+  if (step === 'both') return `Tap ${me} to guard a zone and ${other} to strike one`
+  if (step === 'guard') return `You still have to guard: tap ${me},\non the zone you want to protect`
+  if (step === 'strike') return `You still have to strike: tap ${other},\non the zone you want to hit`
+  return ''
+}

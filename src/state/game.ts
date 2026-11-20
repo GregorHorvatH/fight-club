@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { play, type Sound } from '../audio/synth'
-import { IMPACT } from '../timing'
+import { timelineOf } from '../timing'
 import { createMatch, playRound, resolveRound, type Match, type Move, type Rng, type RoundResult, type Side, type Weapon, type Zone } from '../sim'
 import { useBest } from './best'
 import { useSettings, type Mode } from './settings'
@@ -57,6 +57,29 @@ interface Game {
   toTitle: () => void
 }
 
+/** The sounds of a replay that are still to come: they stop when the replay is skipped. */
+let pending: ReturnType<typeof setTimeout>[] = []
+const stopSounds = (): void => {
+  pending.forEach(clearTimeout)
+  pending = []
+}
+
+/** Each strike of a round sounds at its own moment: the swing, the blow (or the guard), the stumble. The times are those of the replay. */
+function scheduleSounds(result: RoundResult): void {
+  stopSounds()
+  const tl = timelineOf(result)
+  const at = (ms: number, sound: Sound) => void pending.push(setTimeout(() => play(sound), Math.max(0, Math.round(ms))))
+  for (const side of tl.order) {
+    const s = result.strikes[side]!
+    const hit = tl.hitAt[side]! * 1000
+    if (s.crit) at(hit, 'crit')
+    else if (!s.blocked) at(s.weapon === 'foot' ? hit - 90 : hit, s.weapon === 'foot' ? 'kick' : 'hit') // the thud of the kick sound is 90 ms into it
+    if (s.blocked && s.weapon === 'foot') at(hit - 130, 'whoosh') // a guarded kick: you hear the swing, then the guard
+    if (s.blocked) at(hit + 30, 'block')
+    if (s.recoil) at(hit + 250, 'stumble')
+  }
+}
+
 let random: Rng = Math.random
 /** Tests swap the dice. */
 export const setRandomSource = (r: Rng): void => {
@@ -78,18 +101,7 @@ export const useGame = create<Game>((set, get) => {
       mode === 'solo'
         ? playRound(match, moveOf(choice.player), random)
         : resolveRound(match, { player: moveOf(choice.player), enemy: moveOf(choice.enemy) }, random)
-    const { player, enemy } = result.strikes
-    const kicked = player.weapon === 'foot' || enemy.weapon === 'foot'
-    const kickLanded = (player.weapon === 'foot' && !player.blocked) || (enemy.weapon === 'foot' && !enemy.blocked)
-    // the sounds are timed to the animation: the strikes connect IMPACT seconds into the replay
-    const hit = IMPACT * 1000
-    const at = (ms: number, sound: Sound) => void setTimeout(() => play(sound), ms)
-    if (player.crit || enemy.crit) at(hit, 'crit')
-    else if (kickLanded) at(hit - 90, 'kick') // the thud of the kick sound is 90 ms into it
-    else if (!player.blocked || !enemy.blocked) at(hit, 'hit')
-    if (kicked && !kickLanded) at(hit - 130, 'whoosh') // a kick that was guarded: you hear the swing, then the guard
-    if (player.blocked || enemy.blocked) at(hit + 30, 'block')
-    if (player.recoil || enemy.recoil) at(hit + 250, 'stumble')
+    scheduleSounds(result)
     set({ phase: 'reveal', match: next, last: result, hover: null })
   }
 
@@ -103,6 +115,7 @@ export const useGame = create<Game>((set, get) => {
     hover: null,
 
     start: () => {
+      stopSounds()
       const { mode, difficulty } = useSettings.getState()
       set({ phase: 'choose', mode, match: createMatch(difficulty), choice: fresh(), last: null, matchId: get().matchId + 1 })
     },
@@ -155,6 +168,7 @@ export const useGame = create<Game>((set, get) => {
     next: () => {
       const { phase, match, mode } = get()
       if (phase !== 'reveal') return
+      stopSounds()
       if (match.status === 'fighting') {
         set({ phase: 'choose', choice: fresh(), last: null })
         return
@@ -164,6 +178,9 @@ export const useGame = create<Game>((set, get) => {
       set({ phase: 'over' })
     },
 
-    toTitle: () => set({ phase: 'title', last: null, choice: fresh() }),
+    toTitle: () => {
+      stopSounds()
+      set({ phase: 'title', last: null, choice: fresh() })
+    },
   }
 })

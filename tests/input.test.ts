@@ -6,7 +6,7 @@ const { BUTTONS, KEYS, buttonCode, buttonKey, handleKey, zoneCode, zoneKey } = a
 const { useGame } = await import('../src/state/game')
 const { useSettings } = await import('../src/state/settings')
 const { ZONES } = await import('../src/sim')
-const { STEP_TEXT, stepOf } = await import('../src/ui/steps')
+const { IDLE_MS, STEP_TEXT, idleHint, stepOf } = await import('../src/ui/steps')
 
 describe('the keys form the same picture as the screen', () => {
   it('every player has nine different keys, and the two players share none', () => {
@@ -212,5 +212,27 @@ describe('matches', () => {
     useGame.getState().start()
     useGame.getState().start()
     expect(useGame.getState().matchId).toBe(before + 2)
+  })
+})
+
+describe('the hint for a player who does not choose', () => {
+  it('waits three seconds', () => {
+    expect(IDLE_MS).toBe(3000)
+  })
+
+  it('says what is still missing and where to tap', () => {
+    expect(idleHint('both', 'James', 'Amy')).toMatch(/James to guard.*Amy to strike/)
+    expect(idleHint('guard', 'James', 'Amy')).toMatch(/guard.*tap James/)
+    expect(idleHint('strike', 'James', 'Amy')).toMatch(/strike.*tap Amy/)
+  })
+
+  it('can speak to the player directly (two players)', () => {
+    expect(idleHint('guard', 'yourself', 'Amy')).toMatch(/tap yourself/)
+    expect(idleHint('both', 'yourself', 'Amy')).toBe('Tap yourself to guard a zone and Amy to strike one')
+  })
+
+  it('says nothing when the choice is complete or already locked in (the fight button is ready)', () => {
+    expect(idleHint('ready', 'James', 'Amy')).toBe('')
+    expect(idleHint('locked', 'James', 'Amy')).toBe('')
   })
 })

@@ -3,7 +3,6 @@ import { useMemo, useRef, type ReactNode } from 'react'
 import { Color, MeshStandardMaterial, Vector3, type MeshBasicMaterial, type Object3D, type SkinnedMesh } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js'
-import { IMPACT } from '../timing'
 import { poseInput, type FighterView, type Stage } from './arenaView'
 import {
   ANKLE, BASE_X, FORE, HEAD_R, HEAD_UP, HIP_Y, HIP_Z, NECK_UP, SHIN, SHOULDER_UP, SHOULDER_Z, THIGH, UPPER, WAIST,
@@ -138,8 +137,8 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
   const gold = useMemo(() => new Color(AIM_COLOR), [])
   const spark = useMemo(() => {
     if (!view.foe) return null
-    const a = aimPoint(view.foe, view.strike)
-    const p = computePose(IMPACT, poseInput(view))
+    const a = aimPoint(view.foe)
+    const p = computePose(view.times.hitAt, poseInput(view))
     return [2 * BASE_X - p.x - a[0], a[1] - p.y] as const
   }, [view])
 
@@ -224,9 +223,9 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
     for (const h of model.halos) h.visible = glowing
 
     // the spark where the blow lands
-    const age = clamp01((t - IMPACT) / 0.45)
+    const age = clamp01((t - view.times.hitAt) / 0.45)
     const sp = J.burst!
-    sp.visible = view.incoming !== null && t > IMPACT && age < 1
+    sp.visible = view.incoming !== null && t > view.times.hitAt && age < 1
     if (sp.visible) {
       sp.scale.setScalar(0.3 + age * 1.4)
       ;(sp as unknown as { material: MeshBasicMaterial }).material.opacity = 0.9 * (1 - age)

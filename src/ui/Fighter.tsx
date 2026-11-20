@@ -1,21 +1,23 @@
-import { useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
+import { useLayoutEffect, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import type { Zone } from '../sim'
-import { IMPACT } from '../timing'
 import { usePortrait } from './usePortrait'
+import { useLayout } from '../state/layout'
 import { HALF_WIDTH } from './camera'
 
 /** A tall frame shows the same width as the 3D camera does (so the fighters are the same size in both views), and this much ground under the feet. */
-const TALL_H = 3.984
+/** The top of the head of a fighter in his guard, in units above the floor. */
+const HEAD_TOP = HIP_Y + ANKLE + WAIST + NECK_UP + HEAD_UP + HEAD_R
+const TALL_H = (2 * HALF_WIDTH * 3.984) / 5.2 // the shape of the frame stays 5.2 : 3.984, whatever its width
 const TALL_BELOW = 0.4
 import { poseInput, type FighterView, type Label } from './arenaView'
-import { BASE_X, FORE, HEAD_R, HEAD_UP, HIP_Y, NECK_UP, SHIN, SHOULDER_UP, THIGH, UPPER, WAIST, aimPoint, computePose, type Pose } from './pose'
+import { ANKLE, BASE_X, FORE, HEAD_R, HEAD_UP, HIP_Y, NECK_UP, SHIN, SHOULDER_UP, THIGH, UPPER, WAIST, aimPoint, computePose, type Pose } from './pose'
 
 export function Floats({ labels }: { labels: Label[] }) {
   if (labels.length === 0) return null
   return (
     <div className="floats" aria-live="polite">
       {labels.map((l) => (
-        <span key={l.kind} className={`float ${l.kind}`}>
+        <span key={l.kind} className={`float ${l.kind}`} style={{ '--at': l.at } as CSSProperties}>
           {l.text}
         </span>
       ))}
@@ -54,7 +56,7 @@ const rot = (rad: number): string => `rotate(${deg(rad).toFixed(2)})`
  * Puts a pose on the skeleton. The scene is drawn with y up (the whole scene is flipped), the same units and the same angle
  * conventions as the 3D fighter, so a positive angle is a counter-clockwise turn.
  */
-function apply(J: Partial<Record<JointName, SVGGElement>>, P: Pose, t: number, spark: readonly [number, number] | null, hit: boolean): void {
+function apply(J: Partial<Record<JointName, SVGGElement>>, P: Pose, t: number, spark: readonly [number, number] | null, hitAt: number | null): void {
   const set = (n: JointName, v: string) => J[n]?.setAttribute('transform', v)
   set('root', `translate(${P.x.toFixed(3)} ${P.y.toFixed(3)}) ${rot(P.fall * 1.5)}`)
   set('shadow', `translate(${P.x.toFixed(3)} 0)`)
@@ -70,9 +72,9 @@ function apply(J: Partial<Record<JointName, SVGGElement>>, P: Pose, t: number, s
   // the spark where the opponent's blow lands: a ring that swells and fades
   const sp = J.spark
   if (sp && spark) {
-    const age = Math.min(1, Math.max(0, (t - IMPACT) / 0.45))
+    const age = Math.min(1, Math.max(0, (t - (hitAt ?? 0)) / 0.45))
     sp.setAttribute('transform', `translate(${spark[0].toFixed(3)} ${spark[1].toFixed(3)}) scale(${(0.3 + age * 1.4).toFixed(3)})`)
-    sp.setAttribute('opacity', hit && t > IMPACT && age < 1 ? String(0.9 * (1 - age)) : '0')
+    sp.setAttribute('opacity', hitAt !== null && t > hitAt && age < 1 ? String(0.9 * (1 - age)) : '0')
   }
 }
 
@@ -96,9 +98,9 @@ function Figure({ side, view, settled }: FigureProps) {
 
   useLayoutEffect(() => {
     // where the opponent's blow lands on this fighter, from the defender's own base position
-    const spark = view.foe ? ((a) => [2 * BASE_X - a[0], a[1]] as const)(aimPoint(view.foe, view.strike)) : null
-    const hit = view.incoming !== null
-    const draw = (t: number, clock: number) => apply(joints.current, computePose(t, poseInput(view), clock, phase), t, spark, hit)
+    const spark = view.foe ? ((a) => [2 * BASE_X - a[0], a[1]] as const)(aimPoint(view.foe)) : null
+    const hitAt = view.incoming ? view.times.hitAt : null
+    const draw = (t: number, clock: number) => apply(joints.current, computePose(t, poseInput(view), clock, phase), t, spark, hitAt)
     draw(lastT.current, lastT.current) // the first frame is set before the browser paints
     let raf = 0
     const frame = (now: number) => {
@@ -207,10 +209,31 @@ export function Scene2D({ player, enemy, settled, far, stand }: { player: Fighte
   const portrait = usePortrait()
   // in a tall window the frame is narrow: it is cut down to the two fighters, so that they fill the width as big as they can be
   const box = portrait ? { x: -HALF_WIDTH, y: -(TALL_H - TALL_BELOW), w: 2 * HALF_WIDTH, h: TALL_H } : far ? { x: -5.5, y: -5.63, w: 11, h: 6.62 } : { x: -3.8, y: -4.1, w: 7.6, h: 4.5 }
+  const svgRef = useRef<SVGSVGElement>(null)
+  const setHeadsTop = useLayout((s) => s.setHeadsTop)
+  const flipped = box.y - (far || portrait ? stand * box.h : 0)
+  // tell the hint where the heads are: the top of a head in its guard, from the frame (it does not move when the fighters do)
+  useLayoutEffect(() => {
+    const svg = svgRef.current
+    const arena = svg?.closest('.arena')
+    if (!svg || !arena) return
+    const measure = () => {
+      const r = svg.getBoundingClientRect()
+      const a = arena.getBoundingClientRect()
+      setHeadsTop(r.top - a.top + (-HEAD_TOP - flipped) * (r.height / box.h))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(svg)
+    return () => {
+      ro.disconnect()
+      setHeadsTop(null)
+    }
+  }, [flipped, box.h, setHeadsTop])
   return (
     <div className={`scene${far ? ' far' : ''}${portrait ? ' tall' : ''}`}>
       {/* the fighters fill most of the frame; in front of an arena picture the frame is wider, so they stand in it, small, and the arena is big */}
-      <svg viewBox={`${box.x} ${(box.y - (far || portrait ? stand * box.h : 0)).toFixed(3)} ${box.w} ${box.h}`} role="img" aria-label="Two fighters">
+      <svg ref={svgRef} viewBox={`${box.x} ${flipped.toFixed(3)} ${box.w} ${box.h}`} role="img" aria-label="Two fighters">
         <g transform="scale(1 -1)">
           <rect className="floor" x="-30" y="-0.5" width="60" height="0.5" />
           <line className="floor-line" x1="-30" y1="0" x2="30" y2="0" />

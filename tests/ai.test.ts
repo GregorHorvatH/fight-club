@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chooseMove, habits, seeded, type Difficulty, type Move, type Weapon, type Zone } from '../src/sim'
+import { KICK_SAFE_HP, chooseMove, habits, seeded, type Difficulty, type Move, type Weapon, type Zone } from '../src/sim'
 
 const repeat = (move: Move, n: number): Move[] => Array.from({ length: n }, () => move)
 
@@ -82,5 +82,15 @@ describe('chooseMove', () => {
     const open = share('normal', stubborn, (m) => m.weapon, 'foot')
     const wary: Move[] = ['head', 'body', 'legs', 'head', 'body', 'legs'].map((z) => ({ attack: 'head', weapon: 'hand', block: z as Zone }))
     expect(open).toBeGreaterThan(share('normal', wary, (m) => m.weapon, 'foot'))
+  })
+
+  it('nearly out of health the AI does not kick: a kick is slow and the faster punch would land first', () => {
+    for (const d of ['normal', 'hard'] as const) {
+      expect(share(d, stubborn, (m) => m.weapon, 'foot')).toBeGreaterThan(0.2) // healthy: it does kick
+      const rng = seeded(8)
+      let kicks = 0
+      for (let i = 0; i < 500; i++) if (chooseMove(stubborn, d, rng, KICK_SAFE_HP).weapon === 'foot') kicks++
+      expect(kicks).toBe(0)
+    }
   })
 })

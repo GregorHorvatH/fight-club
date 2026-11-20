@@ -1,4 +1,6 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import { turnOf, useGame } from '../state/game'
+import { hintMiddle, useLayout } from '../state/layout'
 import { buttonKey } from '../input'
 import type { Side, Weapon } from '../sim'
 import { Hint } from './Log'
@@ -7,8 +9,8 @@ import { STEP_TEXT, stepOf } from './steps'
 const WEAPON_LABEL: Record<Weapon, string> = { hand: 'Punch', foot: 'Kick' }
 const WEAPON_ICON: Record<Weapon, string> = { hand: '✊', foot: '🦶' }
 const WEAPON_HINT: Record<Weapon, string> = {
-  hand: 'Punch: steady damage.',
-  foot: 'Kick: 1.4x the damage, but if it is guarded you stumble and lose 7 health.',
+  hand: 'Punch: fast, so it strikes before a kick. Steady damage.',
+  foot: 'Kick: slow (a punch strikes first), 1.4x the damage, but if it is guarded you stumble and lose 7 health.',
 }
 
 /** What to strike with: a punch or a kick. A column of two buttons that stands behind James's back. */
@@ -78,6 +80,31 @@ export function Sides() {
 
 /** The bottom of the field, under the fighters: the hint. */
 export function Dock() {
+  const ref = useRef<HTMLDivElement>(null)
+  const headsTop = useLayout((s) => s.headsTop)
+  const [middle, setMiddle] = useState<number | null>(null)
   const phase = useGame((s) => s.phase)
-  return <div className="dock">{phase !== 'reveal' && <Hint />}</div>
+  const duo = useGame((s) => s.mode === 'duo')
+  const logged = useGame((s) => s.match.log.length > 0)
+  // the hint goes right under the bars; once there are logs (or between two people) it goes under them in a tall window
+  // the hint is halfway between the bottom of the logs (the bars with their combo and logs) and the top of the heads
+  useLayoutEffect(() => {
+    const app = ref.current?.parentElement
+    const hud = app?.querySelector('.hud')
+    if (!app || !hud) return
+    const measure = () => {
+      const a = app.getBoundingClientRect()
+      const bottom = Math.max(...[...hud.querySelectorAll('.bar')].map((b) => b.getBoundingClientRect().bottom)) - a.top
+      setMiddle(hintMiddle(Number.isFinite(bottom) ? bottom : null, headsTop))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(hud)
+    return () => ro.disconnect()
+  }, [headsTop])
+  return (
+    <div ref={ref} className={`dock${duo ? ' duo' : ''}${logged ? ' logged' : ''}`} style={middle === null ? undefined : { top: middle, transform: 'translateY(-50%)' }}>
+      {phase !== 'reveal' && <Hint />}
+    </div>
+  )
 }

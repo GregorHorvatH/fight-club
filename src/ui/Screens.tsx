@@ -84,9 +84,9 @@ export function Title() {
       </p>
       <ul className="rules">
         <li>
-          <b>Punch</b> (steady) or <b>kick</b> (1.4x damage, but a guarded kick makes you stumble: -7 health).
+          <b>Punch</b> (fast, steady) or <b>kick</b> (slow, 1.4x damage, and a guarded kick makes you stumble: -7 health).
         </li>
-        <li>Strikes land at the same time. Both can fall in one round: a draw.</li>
+        <li>You both choose in secret, then the strikes come one after the other: a punch is fast and goes first, a kick is slow. A knockout ends the round.</li>
         <li>Landing strikes in a row builds a combo. An unguarded strike may be a critical hit (double damage).</li>
       </ul>
 
@@ -152,17 +152,14 @@ export function End() {
   const fresh = useBest((s) => s.fresh)
   const n = NAMES[mode]
   const duo = mode === 'duo'
-  const title = match.status === 'draw' ? 'Draw' : duo ? `${match.status === 'won' ? n.player : n.enemy} wins` : match.status === 'won' ? 'Victory' : 'Defeat'
+  const title = duo ? `${match.status === 'won' ? n.player : n.enemy} wins` : match.status === 'won' ? 'Victory' : 'Defeat'
   const winnerHp = match.status === 'won' ? match.hp.player : match.hp.enemy
-  const text =
-    match.status === 'draw'
-      ? `Both fighters fell in round ${match.round}.`
-      : duo
-        ? `${match.status === 'won' ? n.player : n.enemy} won in ${match.round} rounds with ${winnerHp} health left.`
-        : match.status === 'won'
-          ? `You won in ${match.round} rounds with ${match.hp.player} health left.`
-          : `You went down in round ${match.round}. The enemy had ${match.hp.enemy} health left.`
-  const cls = match.status === 'draw' ? 'draw' : duo || match.status === 'won' ? 'won' : 'lost'
+  const text = duo
+    ? `${match.status === 'won' ? n.player : n.enemy} won in ${match.round} rounds with ${winnerHp} health left.`
+    : match.status === 'won'
+      ? `You won in ${match.round} rounds with ${match.hp.player} health left.`
+      : `You went down in round ${match.round}. The enemy had ${match.hp.enemy} health left.`
+  const cls = duo || match.status === 'won' ? 'won' : 'lost'
   return (
     <div className={`screen end ${cls}`} role="dialog" aria-label={title}>
       <h1>{title}</h1>

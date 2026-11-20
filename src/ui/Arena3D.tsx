@@ -1,5 +1,6 @@
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Vector3, type PerspectiveCamera } from 'three'
+import { useLayout } from '../state/layout'
 import { Component, Suspense, type ReactNode } from 'react'
 import { Fighter3D } from './Fighter3D'
 import type { Stage } from './arenaView'
@@ -7,6 +8,9 @@ import { ModelFighter3D } from './ModelFighter3D'
 import type { FighterView } from './arenaView'
 import { useGame } from '../state/game'
 import { FOV, isNarrow, viewFor } from './camera'
+
+/** How high the top of the head of the taller character (with a cap) is above the floor, in units of the figure. */
+const HEADS_3D = 3.95
 
 /** The camera drifts slowly from side to side, always looking at the middle of the ring; it follows the shape of the window. */
 function CameraRig({ backdrop, stand, fixed, floor }: { backdrop: boolean; stand: number; fixed: boolean; floor: number | null }) {
@@ -33,6 +37,10 @@ function CameraRig({ backdrop, stand, fixed, floor }: { backdrop: boolean; stand
         camera.lookAt(0, look, 0)
       }
     }
+    // tell the hint where the heads are (the top of the taller character, in its guard, projected on the screen)
+    camera.updateMatrixWorld()
+    const top = new Vector3(0, HEADS_3D, 0).project(camera).y // -1 (bottom) .. 1 (top)
+    useLayout.getState().setHeadsTop(((1 - top) / 2) * size.height)
   })
   return null
 }

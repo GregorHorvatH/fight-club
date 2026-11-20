@@ -7,20 +7,25 @@ A turn-based browser duel in the spirit of the old "fight club" web games. Every
 Whoever runs out of health first loses.
 
 - **Health:** 100 each. A landed strike rolls 8-14 damage.
-- **Hand or foot.** You choose what to strike with. A **punch** is steady. A **kick** does 1.4x the damage, but if the other
-  fighter guards that zone you **stumble**: -7 health and your combo is gone. A kick pays off when you think you are not being
-  read; against a guard that reads you, punch. (A stumble can be fatal, and two stumbles can be a draw.)
+- **Hand or foot, fast or slow.** You choose what to strike with. A **punch** is fast and steady. A **kick** does 1.4x the damage, but it is
+  **slow**, and if the other fighter guards that zone you **stumble**: -7 health and your combo is gone. A kick pays off when you think you
+  are not being read; against a guard that reads you, punch.
+- **The strikes come one after the other.** You both choose in secret and at once (a guard and a strike), but the round is played in two
+  beats, with a caption for each: who strikes where with what, and where the other one is guarding. The **faster strike goes first**: a
+  punch before a kick. With the same weapon the **more wounded fighter** is quicker, and only when that is equal too does a coin decide.
+  A **knockout ends the round**: the fighter who is down does not strike back, so a critical hit on the first strike can decide the
+  match. There is **no draw**.
 - **Combo:** every strike you land in a row makes the next one hit +2 harder (up to +8). A guarded strike resets it.
 - **Critical hits:** 15% of the strikes that are not guarded do double damage.
-- **Simultaneous strikes:** both land in the same round. If both fighters fall in one round it is a draw.
 - **The enemy learns.** *Easy* guesses blindly. *Normal* studies your habits (newer rounds count more) and guards where you
   tend to strike and strikes where you tend not to guard. *Hard* does the same but almost always takes the likeliest zone.
   The smarter enemies also pick the weapon: they kick when they expect the zone to be open. It only ever looks at your past
   rounds, never at the move you are choosing now.
 - **Everything is on the field.** The arena fills the window. You choose by **tapping the fighters**: a tap on James picks the zone to guard,
   a tap on Amy the zone to strike (the zone lights up under the pointer first). The punch and the kick are two buttons at the left edge
-  (James's side), the one that starts the fight at the right edge (Amy's). The hint is under the fighters; each fighter's last three
-  strikes are listed behind them at the top, the older ones fading away.
+  (James's side), the one that starts the fight at the right edge (Amy's). The hint is under the health bars; each fighter's last two
+  strikes are listed under each health bar, below the combo, the older ones fading away. The bars, the combo and the log follow the replay:
+  they change at the moment each blow lands.
 - **A short intro** (2.3 s) opens every match: the names slide in, "VS" slams down between the fighters and is gone, then "FIGHT!"
   and a bell. Nothing stays on the arena afterwards. It does not block the controls.
 - **Two players on one screen, one after the other.** James (the left fighter) chooses first: tap himself to guard, Amy to strike, a punch or a
@@ -133,4 +138,6 @@ tests/        vitest
 - **All randomness is injected** (`Rng`), so the rules and the AI are tested with scripted and seeded dice.
 - `resolveRound` takes both fighters' moves, so two people and a person against the AI share the same rules; `playRound` is
   just the AI picking the second move first.
-- Tuning lives in `src/sim/config.ts` (health, damage, crit chance, combo bonus, kick multiplier and stumble, AI memory and confidence).
+- Tuning lives in `src/sim/config.ts` (health, damage, crit chance, combo bonus, kick multiplier and stumble, AI memory and confidence). The order of the
+  strikes is `whoFirst` in `src/sim/round.ts`; when each beat starts and lands is `src/timing.ts` (`BEAT`, `LEAD`, `IMPACT`), shared by the animation,
+  the sounds, the captions and the health bars. The enemy does not kick when it is nearly out of health (a kick is slow).

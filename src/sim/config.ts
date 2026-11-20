@@ -24,3 +24,5 @@ export const HARD_CONFIDENCE = 0.8
 export const AI_MEMORY = 0.85
 /** Enemy AI: the hard AI kicks only when it thinks the zone is open at least this often. */
 export const HARD_KICK_THRESHOLD = 0.75
+/** Enemy AI: with this much health or less it does not kick (a kick is slow: the faster punch of the other one lands first). */
+export const KICK_SAFE_HP = 24

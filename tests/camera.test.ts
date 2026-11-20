@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { FOV, isNarrow, viewFor } from '../src/ui/camera'
+import { hintMiddle } from '../src/state/layout'
 import { floorAbove } from '../src/ui/floor'
 
 const tan = Math.tan((FOV * Math.PI) / 360)
@@ -79,5 +80,17 @@ describe('the floor', () => {
   it('a taller stack or a bigger margin lifts the floor', () => {
     expect(floorAbove(800, 650, 780)).toBeGreaterThan(floorAbove(800, 700, 780))
     expect(floorAbove(800, 700, 770)).toBeGreaterThan(floorAbove(800, 700, 780))
+  })
+})
+
+describe('the hint', () => {
+  it('goes halfway between the bottom of the logs and the top of the heads', () => {
+    expect(hintMiddle(160, 280)).toBe(220)
+    expect(hintMiddle(100, 301)).toBe(201)
+  })
+  it('has no place until both are known, or when there is no room between them', () => {
+    expect(hintMiddle(null, 280)).toBeNull()
+    expect(hintMiddle(160, null)).toBeNull()
+    expect(hintMiddle(300, 280)).toBeNull()
   })
 })

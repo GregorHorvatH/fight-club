@@ -10,8 +10,8 @@
  *  - "near" is the limb on the camera's side: it is the one that punches and kicks.
  *
  * A strike is aimed: at the moment of contact the fist or the foot is solved (two-link inverse kinematics) to reach the
- * chosen zone of the opponent's body, wherever the opponent's head, chest or shin is at that moment. Both fighters close
- * in just enough for each to reach (see lungeFor), so a punch is thrown at the right range whatever the opponent is doing.
+ * chosen zone of the opponent's body. The strikes of a round come one after the other, so the one who is struck stands in his
+ * guard where he is, and the one who strikes closes in just enough to reach him (see lungeFor).
  */
 import { IMPACT } from '../timing'
 import type { Weapon, Zone } from '../sim'
@@ -41,7 +41,7 @@ export const HIP_Z = 0.22
 const MIN_HEAD_GAP = 0.06
 const STRETCH = 0.93
 const LUNGE_MIN = 0.4
-const LUNGE_MAX = 1.5 // 2 * BASE_X - 2 * 1.5 = 0.6 between the two roots: the torsos just touch
+const LUNGE_MAX = 2.6 // only the striker moves: it may cross most of the ring (2 * BASE_X = 3.6 between the roots)
 /** the fist is sent this far short of the surface point (its radius); a foot this far */
 const TOUCH = { hand: FIST, foot: 0.06 }
 /** how far the striking limb can reach from the shoulder / the hip */
@@ -78,16 +78,18 @@ export interface Pose {
   flash: number
 }
 export interface PoseInput {
-  /** the strike this fighter throws */
+  /** the strike this fighter throws, and when it begins (seconds into the replay) */
   strike: Strike | null
-  /** the strike the opponent throws (where this fighter's target is, and how hard it gets hit) */
-  foe: Strike | null
-  /** the strike that comes in: where, and whether it is guarded */
-  incoming: { zone: Zone; blocked: boolean } | null
-  /** this fighter's own kick was guarded: it stumbles */
+  strikeAt: number
+  /** the strike that comes in: where, with what, and whether it is guarded; and when it connects */
+  incoming: { zone: Zone; blocked: boolean; weapon: Weapon } | null
+  hitAt: number
+  /** this fighter's own kick was guarded: it stumbles (when its kick connects) */
   stumble: boolean
   ko: boolean
   won: boolean
+  /** when the match was decided (a knockout), for falling down and for the winner's joy */
+  endAt: number
 }
 
 type Key = readonly [time: number, value: number]
@@ -207,12 +209,12 @@ function zonePoint(zone: Zone, b: Body, kicking: boolean): Pt {
   return [kf + 0.35 * Math.sin(sa) + 0.14 * Math.cos(sa), ku - 0.35 * Math.cos(sa) + 0.14 * Math.sin(sa)]
 }
 
-/** How far the fighter must stretch to reach the opponent's zone, as a fraction of what its limb can reach, when both close in by `lunge`. */
-function stretch(me: Strike, foe: Strike | null, lunge: number): number {
+/** How far the fighter must stretch to reach the opponent's zone, as a fraction of what its limb can reach, when it closes in by `lunge`. */
+function stretch(me: Strike, lunge: number): number {
   const kicking = me.weapon === 'foot'
   const bm = bodyAt(IMPACT, me, lunge, 0, 0)
   const from = kicking ? hipAt(bm, true) : shoulderAt(bm, false)
-  const t = targetPoint(me.zone, foe, lunge)
+  const t = targetPoint(me.zone)
   return (Math.hypot(t[0] - from[0], t[1] - from[1]) - TOUCH[me.weapon]) / REACH[me.weapon]
 }
 
@@ -229,26 +231,20 @@ function largest(lo: number, hi: number, ok: (v: number) => boolean): number {
 }
 
 const lungeCache = new Map<string, number>()
-/** forget the computed lunges (needed only when the choreography constants are changed at run time, as the tuning script does) */
+/** forget the computed lunges (needed only when the choreography constants are changed at run time, as a tuning script does) */
 export const clearLungeCache = (): void => lungeCache.clear()
-const keyOf = (s: Strike | null): string => (s ? `${s.weapon[0]}${s.zone[0]}` : '-')
 
 /**
- * How far BOTH fighters close in on each other for a pair of strikes. The same number for both (it does not matter who is
- * asked), as little as lets each reach its target with the limb almost fully stretched, and never so much that the heads
- * would touch. So a punch is thrown at the right range whatever the opponent is doing: crouching, leaning back or kicking.
+ * How far the striker closes in on the opponent, who stands in his guard where he is: as little as lets it reach its target with the
+ * limb almost fully stretched, and never so much that the heads would touch.
  */
-export function lungeFor(a: Strike | null, b: Strike | null): number {
-  const [ka, kb] = [keyOf(a), keyOf(b)].sort() as [string, string]
-  const key = `${ka}|${kb}`
+export function lungeFor(a: Strike): number {
+  const key = `${a.weapon}${a.zone}`
   const hit = lungeCache.get(key)
   if (hit !== undefined) return hit
-  // stretch() falls as the fighters close in: for each fighter, the lunge at which it has to stretch exactly STRETCH;
-  // both must be able to reach, so it is the larger of the two
-  const boundary = (me: Strike | null, foe: Strike | null): number =>
-    me ? largest(LUNGE_MIN, LUNGE_MAX, (l) => stretch(me, foe, l) >= STRETCH) : LUNGE_MIN
-  const need = Math.max(boundary(a, b), boundary(b, a))
-  const tooClose = largest(LUNGE_MIN, LUNGE_MAX, (l) => headGap(a, b, l) >= MIN_HEAD_GAP)
+  // stretch() falls as the striker closes in: the lunge at which it has to stretch exactly STRETCH
+  const need = largest(LUNGE_MIN, LUNGE_MAX, (l) => stretch(a, l) >= STRETCH)
+  const tooClose = largest(LUNGE_MIN, LUNGE_MAX, (l) => headGap(a, l) >= MIN_HEAD_GAP)
   const lunge = Math.min(need, tooClose)
   lungeCache.set(key, lunge)
   return lunge
@@ -256,21 +252,19 @@ export function lungeFor(a: Strike | null, b: Strike | null): number {
 
 /**
  * How far apart the two heads' front surfaces are at the moment of contact, measured along the line between the fighters
- * (negative = the heads would overlap). `a` and `b` are the strikes the two fighters throw.
+ * (negative = the heads would overlap): the striker has closed in by `lunge`, the opponent stands in his guard.
  */
-export function headGap(a: Strike | null, b: Strike | null, lunge = lungeFor(a, b)): number {
+export function headGap(a: Strike, lunge = lungeFor(a)): number {
   const ba = bodyAt(IMPACT, a, lunge, 0, 0)
-  const bb = bodyAt(IMPACT, b, lunge, 0, 0)
-  const pa = zonePoint('head', ba, a?.weapon === 'foot')
-  const pb = zonePoint('head', bb, b?.weapon === 'foot')
-  return 2 * BASE_X - bb.x - pb[0] - (ba.x + pa[0])
+  const pa = zonePoint('head', ba, a.weapon === 'foot')
+  const pb = zonePoint('head', bodyAt(IMPACT, null, 0, 0, 0), false)
+  return 2 * BASE_X - pb[0] - (ba.x + pa[0])
 }
 
-/** Where the opponent's zone is at the moment of contact, in OUR frame (measured from our root, forward = toward the opponent). */
-export function targetPoint(zone: Zone, foe: Strike | null, lunge: number): Pt {
-  const fb = bodyAt(IMPACT, foe, lunge, 0, 0)
-  const p = zonePoint(zone, fb, foe?.weapon === 'foot')
-  return [2 * BASE_X - fb.x - p[0], p[1]]
+/** Where a zone of the opponent (standing in his guard) is at the moment of contact, in OUR frame (from our root, forward = toward him). */
+export function targetPoint(zone: Zone): Pt {
+  const p = zonePoint(zone, bodyAt(IMPACT, null, 0, 0, 0), false)
+  return [2 * BASE_X - p[0], p[1]]
 }
 
 const shoulderAt = (b: Body, kicking: boolean): Pt => [
@@ -294,12 +288,12 @@ function ik(dx: number, dy: number, l1: number, l2: number, jointUp: boolean): {
 }
 
 /** The point the fist (centre) or the foot (tip) is sent to: the target, pulled back a little so it touches instead of sinking in. */
-export function aimPoint(strike: Strike, foe: Strike | null): Pt {
-  const lunge = lungeFor(strike, foe)
+export function aimPoint(strike: Strike): Pt {
+  const lunge = lungeFor(strike)
   const kicking = strike.weapon === 'foot'
   const bc = bodyAt(IMPACT, strike, lunge, 0, 0)
   const from = kicking ? hipAt(bc, true) : shoulderAt(bc, false)
-  const t = targetPoint(strike.zone, foe, lunge)
+  const t = targetPoint(strike.zone)
   const dx = t[0] - from[0]
   const dy = t[1] - from[1]
   const len = Math.hypot(dx, dy) || 1
@@ -308,11 +302,11 @@ export function aimPoint(strike: Strike, foe: Strike | null): Pt {
 }
 
 /** The strike's solved joint angles at the moment of contact. */
-function contact(strike: Strike, foe: Strike | null): { s: number; e: number } | { h: number; k: number } {
+function contact(strike: Strike): { s: number; e: number } | { h: number; k: number } {
   const kicking = strike.weapon === 'foot'
-  const bc = bodyAt(IMPACT, strike, lungeFor(strike, foe), 0, 0)
+  const bc = bodyAt(IMPACT, strike, lungeFor(strike), 0, 0)
   const from = kicking ? hipAt(bc, true) : shoulderAt(bc, false)
-  const to = aimPoint(strike, foe)
+  const to = aimPoint(strike)
   const dx = to[0] - from[0]
   const dy = to[1] - from[1]
   if (kicking) {
@@ -350,41 +344,42 @@ const blendLeg = (l: LegPose, to: LegPose, w: number): LegPose => ({ h: lerp(l.h
  * @param phase offsets the idle bounce so the two fighters do not move in lockstep
  */
 export function computePose(t: number, input: PoseInput, clock = 0, phase = 0): Pose {
-  const { strike, foe, incoming, stumble, ko, won } = input
-  const b = bodyAt(t, strike, strike ? lungeFor(strike, foe) : 0, clock, phase)
+  const { strike, incoming, stumble, ko, won } = input
+  const ts = t - input.strikeAt // time into this fighter's own strike
+  const b = bodyAt(ts, strike, strike ? lungeFor(strike) : 0, clock, phase)
   let armN: ArmPose = { s: GUARD_N.s + 0.04 * Math.sin(clock * 3 + phase), e: GUARD_N.e }
   let armF: ArmPose = { s: GUARD_F.s + 0.04 * Math.sin(clock * 3.3 + phase), e: GUARD_F.e }
   let kick: LegPose | null = null
   const C = IMPACT
 
   if (strike?.weapon === 'hand') {
-    const c = contact(strike, foe) as { s: number; e: number }
+    const c = contact(strike) as { s: number; e: number }
     const W = 0.15, H = 0.38, E = 0.74
     armN = {
-      s: track(t, [[0, GUARD_N.s], [W, -0.5], [C, c.s], [H, c.s - 0.04], [E, GUARD_N.s]]),
-      e: track(t, [[0, GUARD_N.e], [W, 2.1], [C, c.e], [H, c.e + 0.05], [E, GUARD_N.e]]),
+      s: track(ts, [[0, GUARD_N.s], [W, -0.5], [C, c.s], [H, c.s - 0.04], [E, GUARD_N.s]]),
+      e: track(ts, [[0, GUARD_N.e], [W, 2.1], [C, c.e], [H, c.e + 0.05], [E, GUARD_N.e]]),
     }
     armF = {
-      s: track(t, [[0, GUARD_F.s], [W, 0.95], [C, 0.35], [E, GUARD_F.s]]),
-      e: track(t, [[0, GUARD_F.e], [W, 2.2], [C, 1.7], [E, GUARD_F.e]]),
+      s: track(ts, [[0, GUARD_F.s], [W, 0.95], [C, 0.35], [E, GUARD_F.s]]),
+      e: track(ts, [[0, GUARD_F.e], [W, 2.2], [C, 1.7], [E, GUARD_F.e]]),
     }
   } else if (strike) {
-    const c = contact(strike, foe) as { h: number; k: number }
+    const c = contact(strike) as { h: number; k: number }
     const K = 0.16, H = 0.38, R = 0.52, E = 0.74
     const p0 = planted(STANCE.n, ALPHA_IDLE)
     kick = {
-      h: track(t, [[0, p0.h], [K, 1.25], [C, c.h], [H, c.h - 0.04], [R, 1.05], [E, p0.h]]),
-      k: track(t, [[0, p0.k], [K, -2.1], [C, c.k], [H, c.k - 0.08], [R, -1.5], [E, p0.k]]),
-      a: track(t, [[0, p0.a], [K, 0.2], [C, -1.2], [H, -1.2], [R, -0.2], [E, p0.a]]),
+      h: track(ts, [[0, p0.h], [K, 1.25], [C, c.h], [H, c.h - 0.04], [R, 1.05], [E, p0.h]]),
+      k: track(ts, [[0, p0.k], [K, -2.1], [C, c.k], [H, c.k - 0.08], [R, -1.5], [E, p0.k]]),
+      a: track(ts, [[0, p0.a], [K, 0.2], [C, -1.2], [H, -1.2], [R, -0.2], [E, p0.a]]),
     }
     // the arms balance the kick: the far one swings back, the near one forward
     armF = {
-      s: track(t, [[0, GUARD_F.s], [K, 0.4], [C, -0.9], [H, -0.9], [R, -0.5], [E, GUARD_F.s]]),
-      e: track(t, [[0, GUARD_F.e], [K, 1.0], [C, 0.5], [E, GUARD_F.e]]),
+      s: track(ts, [[0, GUARD_F.s], [K, 0.4], [C, -0.9], [H, -0.9], [R, -0.5], [E, GUARD_F.s]]),
+      e: track(ts, [[0, GUARD_F.e], [K, 1.0], [C, 0.5], [E, GUARD_F.e]]),
     }
     armN = {
-      s: track(t, [[0, GUARD_N.s], [K, 1.1], [C, 1.4], [H, 1.4], [E, GUARD_N.s]]),
-      e: track(t, [[0, GUARD_N.e], [C, 0.7], [E, GUARD_N.e]]),
+      s: track(ts, [[0, GUARD_N.s], [K, 1.1], [C, 1.4], [H, 1.4], [E, GUARD_N.s]]),
+      e: track(ts, [[0, GUARD_N.e], [C, 0.7], [E, GUARD_N.e]]),
     }
   }
 
@@ -392,59 +387,61 @@ export function computePose(t: number, input: PoseInput, clock = 0, phase = 0): 
   let hop = 0
   let fall = 0
   let flash = 0
-  const tau = t - IMPACT
+  const tau = t - input.hitAt // time since the incoming strike connected (negative before)
+  const tauOwn = ts - IMPACT // time since this fighter's own strike connected
 
-  if (incoming && tau > 0) {
-    const power = foe?.weapon === 'foot' ? 1.3 : 1
+  if (incoming && !incoming.blocked && tau > 0) {
+    const power = incoming.weapon === 'foot' ? 1.3 : 1
     flash = clamp01(1 - tau / 0.45)
-    if (!incoming.blocked) {
-      const e = track(tau, [[0, 0], [0.1, 1], [0.32, 0.6], [0.65, 0]]) * power
-      if (incoming.zone === 'head') {
-        // the head snaps back, the body follows, the arms fly up
-        b.head += 0.9 * e
-        b.lean -= 0.35 * e
-        b.x -= 0.35 * e
-        b.twist -= 0.4 * e
-        armN = { s: armN.s + 0.5 * e, e: armN.e }
-        armF = { s: armF.s + 0.5 * e, e: armF.e }
-      } else if (incoming.zone === 'body') {
-        // doubled over, the knees give, the arms clutch
-        b.lean += 0.6 * e
-        b.alpha += 0.25 * e
-        b.x -= 0.3 * e
-        b.head -= 0.3 * e
-        armN = { s: armN.s + 0.3 * e, e: armN.e + 0.5 * e }
-        armF = { s: armF.s + 0.3 * e, e: armF.e + 0.5 * e }
-      } else {
-        // the legs buckle
-        b.alpha += 0.7 * e
-        b.lean += 0.25 * e
-        b.x -= 0.25 * e
-        armN = { s: armN.s + 0.6 * e, e: armN.e }
-        armF = { s: armF.s + 0.6 * e, e: armF.e }
-      }
-      if (tau < 0.4) b.x += Math.sin(tau * 70) * 0.06 * (1 - tau / 0.4)
+    const e = track(tau, [[0, 0], [0.1, 1], [0.32, 0.6], [0.65, 0]]) * power
+    if (incoming.zone === 'head') {
+      // the head snaps back, the body follows, the arms fly up
+      b.head += 0.9 * e
+      b.lean -= 0.35 * e
+      b.x -= 0.35 * e
+      b.twist -= 0.4 * e
+      armN = { s: armN.s + 0.5 * e, e: armN.e }
+      armF = { s: armF.s + 0.5 * e, e: armF.e }
+    } else if (incoming.zone === 'body') {
+      // doubled over, the knees give, the arms clutch
+      b.lean += 0.6 * e
+      b.alpha += 0.25 * e
+      b.x -= 0.3 * e
+      b.head -= 0.3 * e
+      armN = { s: armN.s + 0.3 * e, e: armN.e + 0.5 * e }
+      armF = { s: armF.s + 0.3 * e, e: armF.e + 0.5 * e }
     } else {
-      // a guard: the arms (or the knee) come up in front of the zone, the body is pushed back a little
-      const g = track(tau, [[0, 0], [0.12, 1], [0.45, 1], [0.8, 0]])
-      b.x -= 0.12 * g
-      if (incoming.zone === 'head') {
-        armN = blendArm(armN, { s: 1.3, e: 2.3 }, g)
-        armF = blendArm(armF, { s: 1.2, e: 2.4 }, g)
-      } else if (incoming.zone === 'body') {
-        armN = blendArm(armN, { s: 0.35, e: 2.4 }, g)
-        armF = blendArm(armF, { s: 0.3, e: 2.5 }, g)
-        b.lean += 0.12 * g
-      } else {
-        b.lean += 0.1 * g
-        lift = { w: g }
-      }
+      // the legs buckle
+      b.alpha += 0.7 * e
+      b.lean += 0.25 * e
+      b.x -= 0.25 * e
+      armN = { s: armN.s + 0.6 * e, e: armN.e }
+      armF = { s: armF.s + 0.6 * e, e: armF.e }
+    }
+    if (tau < 0.4) b.x += Math.sin(tau * 70) * 0.06 * (1 - tau / 0.4)
+  }
+
+  if (incoming?.blocked) {
+    flash = tau > 0 ? clamp01(1 - tau / 0.45) : 0
+    // a guard: the arms (or the knee) come up in front of the zone just before the blow, and the body is pushed back a little
+    const g = track(tau, [[-0.3, 0], [-0.05, 1], [0.45, 1], [0.8, 0]])
+    b.x -= 0.12 * track(tau, [[0, 0], [0.12, 1], [0.45, 1], [0.8, 0]])
+    if (incoming.zone === 'head') {
+      armN = blendArm(armN, { s: 1.3, e: 2.3 }, g)
+      armF = blendArm(armF, { s: 1.2, e: 2.4 }, g)
+    } else if (incoming.zone === 'body') {
+      armN = blendArm(armN, { s: 0.35, e: 2.4 }, g)
+      armF = blendArm(armF, { s: 0.3, e: 2.5 }, g)
+      b.lean += 0.12 * g
+    } else {
+      b.lean += 0.1 * g
+      lift = { w: g }
     }
   }
 
-  if (stumble && tau > 0.08) {
+  if (stumble && tauOwn > 0.08) {
     // the kick was guarded: the kicker loses its balance and staggers back
-    const u = tau - 0.08
+    const u = tauOwn - 0.08
     const s = track(u, [[0, 0], [0.12, 1], [0.55, 0.7], [1.0, 0]])
     b.x -= 0.5 * s
     b.lean -= 0.3 * s + Math.sin(u * 13) * 0.12 * s
@@ -453,17 +450,18 @@ export function computePose(t: number, input: PoseInput, clock = 0, phase = 0): 
     armF = { s: armF.s - Math.sin(u * 12) * 0.8 * s, e: armF.e }
   }
 
+  const tauEnd = t - input.endAt // time since the match was decided
   if (ko) {
     // knocked out: the knees give, the arms go limp, then it falls back onto the floor
-    const c = track(tau, [[0, 0], [0.35, 1]])
+    const c = track(tauEnd, [[0, 0], [0.35, 1]])
     b.alpha = lerp(b.alpha, 0.95, c)
     b.lean = lerp(b.lean, -0.2, c)
     armN = blendArm(armN, { s: -0.3, e: 0.3 }, c)
     armF = blendArm(armF, { s: -0.2, e: 0.4 }, c)
-    fall = track(tau, [[0, 0], [0.3, 0], [1.0, 1]])
+    fall = track(tauEnd, [[0, 0], [0.3, 0], [1.0, 1]])
   } else if (won) {
     // the winner raises both fists and bounces
-    const w = track(tau, [[0, 0], [0.5, 0], [0.95, 1]])
+    const w = track(tauEnd, [[0, 0], [0.5, 0], [0.95, 1]])
     armN = blendArm(armN, { s: 2.75, e: 0.25 }, w)
     armF = blendArm(armF, { s: 2.6, e: 0.3 }, w)
     hop = w * Math.abs(Math.sin(clock * 6 + phase)) * 0.16

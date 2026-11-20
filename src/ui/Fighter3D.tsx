@@ -2,7 +2,6 @@ import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef, type ReactNode } from 'react'
 import { AdditiveBlending, BackSide, Color, MeshStandardMaterial, type MeshBasicMaterial, type Object3D } from 'three'
 import type { Zone } from '../sim'
-import { IMPACT } from '../timing'
 import { poseInput, type FighterView } from './arenaView'
 import { ZoneHits } from './ZoneHits'
 import { applyPose, type JointName, type Limb, type Reg } from './rigPose'
@@ -51,8 +50,8 @@ export function Fighter3D({ side, view, settled }: Props) {
   // where the opponent's blow lands on this fighter, relative to this fighter's root and in the direction it faces (for the spark)
   const spark = useMemo(() => {
     if (!view.foe) return null
-    const a = aimPoint(view.foe, view.strike)
-    const p = computePose(IMPACT, poseInput(view))
+    const a = aimPoint(view.foe)
+    const p = computePose(view.times.hitAt, poseInput(view))
     return [2 * BASE_X - p.x - a[0], a[1] - p.y] as const
   }, [view])
 
@@ -75,9 +74,9 @@ export function Fighter3D({ side, view, settled }: Props) {
     }
 
     // the spark where the blow lands
-    const age = clamp01((t - IMPACT) / 0.45)
+    const age = clamp01((t - view.times.hitAt) / 0.45)
     const sparkMesh = J.burst!
-    sparkMesh.visible = view.incoming !== null && t > IMPACT && age < 1
+    sparkMesh.visible = view.incoming !== null && t > view.times.hitAt && age < 1
     if (sparkMesh.visible) {
       sparkMesh.scale.setScalar(0.3 + age * 1.4)
       ;((sparkMesh as unknown as { material: MeshBasicMaterial }).material).opacity = 0.9 * (1 - age)

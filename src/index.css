@@ -36,7 +36,8 @@ kbd {
 .bar-head { display: flex; align-items: baseline; gap: 8px; font-weight: 700; }
 .bar .name { letter-spacing: .04em; }
 .bar .num { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--dim); font-weight: 600; }
-.bar .streak { color: var(--gold); font-size: .78rem; letter-spacing: .06em; }
+.bar .streak { min-height: 1.3em; margin-top: 3px; color: var(--gold); font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-shadow: 0 1px 6px #000; }
+.bar.enemy .streak { text-align: right; }
 .bar.enemy .bar-head { flex-direction: row-reverse; }
 .bar.enemy .num { margin-left: 0; margin-right: auto; }
 .track { height: 18px; margin-top: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
@@ -97,11 +98,11 @@ kbd {
 @keyframes appear { from { opacity: 0; } }
 
 .floats { position: absolute; left: 50%; bottom: 100%; z-index: 3; transform: translateX(-50%); display: flex; flex-direction: column-reverse; align-items: center; pointer-events: none; }
-.float { font-weight: 900; font-size: clamp(1.1rem, 3.4vw, 1.7rem); white-space: nowrap; text-shadow: 0 2px 8px #000; animation: rise 1.2s .3s ease-out both; }
+.float { font-weight: 900; font-size: clamp(1.1rem, 3.4vw, 1.7rem); white-space: nowrap; text-shadow: 0 2px 8px #000; animation: rise 1.2s calc(var(--at, .3) * 1s) ease-out both; }
 .float.hit { color: #fff; }
 .float.crit { color: var(--gold); font-size: clamp(1.4rem, 4.2vw, 2.1rem); }
 .float.block { color: var(--shield); }
-.float.stumble { color: #ff9f43; font-size: clamp(.85rem, 2.6vw, 1.15rem); animation-delay: .55s; }
+.float.stumble { color: #ff9f43; font-size: clamp(.85rem, 2.6vw, 1.15rem); }
 .float.ready { color: var(--player); font-size: clamp(.9rem, 2.8vw, 1.2rem); letter-spacing: .12em; animation: appear .3s both; }
 @keyframes rise { 0% { opacity: 0; transform: translateY(14px) scale(.7); } 20% { opacity: 1; transform: translateY(0) scale(1.15); } 100% { opacity: 0; transform: translateY(-46px); } }
 
@@ -210,11 +211,13 @@ kbd {
 .app .intro .nm { margin-top: 96px; }
 
 /* the hint, at the top under the health bars (between the two logs) */
-.dock { position: absolute; left: 0; right: 0; top: 76px; z-index: 6; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; }
+.dock { position: absolute; left: 0; right: 0; top: 98px; z-index: 6; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; }
 .dock .hint.turn b { font-weight: 800; }
 .dock .hint.turn.player b:first-child { color: var(--player); }
 .dock .hint.turn.enemy b:first-child { color: var(--enemy); }
-.dock .hint { margin: 0; max-width: min(680px, calc(100vw - 2 * 290px)); min-width: min(100%, 300px); text-align: center; color: #fff; opacity: .92; font-size: .92rem; line-height: 1.35; text-shadow: 0 1px 8px #000, 0 0 3px #000; }
+.dock .hint.nudge { animation: nudge .5s ease-out both; font-weight: 600; }
+@keyframes nudge { from { opacity: 0; transform: translateY(-6px); } }
+.dock .hint { white-space: pre-line; margin: 0; max-width: min(680px, calc(100vw - 2 * 290px)); min-width: min(100%, 300px); text-align: center; color: #fff; opacity: .92; font-size: .92rem; line-height: 1.35; text-shadow: 0 1px 8px #000, 0 0 3px #000; }
 
 /* the buttons stand at the edges of the screen, each on the side of its fighter: the punch and the kick on James's side, the one that goes on on Amy's */
 .sides { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
@@ -225,11 +228,21 @@ kbd {
 .side .weapon.on { background: rgba(70, 52, 14, .9); }
 .side .go { align-self: stretch; min-width: 0; padding: 14px 10px; }
 
+/* the captions of a replayed round: one for each strike, in the place of the hint */
+.captions { position: absolute; left: 0; right: 0; top: 84px; z-index: 6; display: grid; justify-items: center; pointer-events: none; }
+.caption { grid-area: 1 / 1; display: grid; justify-items: center; gap: 2px; padding: 0 16px; max-width: min(680px, calc(100vw - 2 * 290px)); text-align: center; text-shadow: 0 1px 8px #000, 0 0 3px #000; opacity: 0;
+  animation: caption calc(var(--d) * 1s) ease-out calc(var(--b) * 1s) both; }
+.caption b { font-size: 1.15rem; letter-spacing: .02em; }
+.caption.player b { color: var(--player); }
+.caption.enemy b { color: var(--enemy); }
+.caption span { font-size: .92rem; color: #cfe6ff; }
+.caption em { margin-top: 3px; font-size: .8rem; font-style: normal; font-weight: 700; letter-spacing: .04em; color: var(--gold); }
+@keyframes caption { 0% { opacity: 0; transform: translateY(-6px); } 10% { opacity: 1; transform: none; } 88% { opacity: 1; } 100% { opacity: 0; } }
+
 /* the strikes of each fighter, on the field behind the fighters; the older ones fade away */
-.olog { position: absolute; top: 84px; width: min(250px, 30vw); pointer-events: none; font-size: .92rem; color: #fff; text-shadow: 0 1px 7px #000, 0 0 3px #000; }
-.olog.player { left: 22px; }
-.olog.enemy { right: 22px; text-align: right; }
-.olog ol { list-style: none; margin: 0; padding: 0; }
+.olog { margin-top: 3px; pointer-events: none; font-size: .92rem; color: #fff; text-shadow: 0 1px 7px #000, 0 0 3px #000; }
+.olog.enemy { text-align: right; }
+.olog ol { list-style: none; margin: 0; padding: 0; min-height: 0; }
 .olog li { display: flex; gap: 10px; padding: 3px 0; text-transform: capitalize; transition: opacity .7s; animation: olog-in .45s ease-out; }
 .olog.enemy li { flex-direction: row-reverse; }
 .olog b { min-width: 2.1em; opacity: .6; }
@@ -241,10 +254,12 @@ kbd {
 @media (max-width: 640px) {
   .app .hud { padding: 10px 12px 22px; }
   .app .intro .nm { margin-top: 118px; }
-  .olog { top: 164px; width: 42vw; font-size: .74rem; }
-  .olog.player { left: 10px; }
-  .olog.enemy { right: 10px; }
-  .dock { top: 102px; padding: 0 12px; }
+  .olog { font-size: .74rem; }
+  .dock { top: 122px; padding: 0 12px; }
+  .dock.duo, .dock.logged { top: 170px; }
+  .captions { top: 170px; }
+  .caption { max-width: none; }
+  .caption b { font-size: 1rem; }
   .dock .hint { max-width: none; font-size: .8rem; }
   .side { width: min(132px, 30vw); gap: 8px; }
   .side.left { left: 6px; }
@@ -264,10 +279,10 @@ kbd {
 
 /* a tall window: the frame is cut down to the two fighters (see Scene2D and viewFor), standing above the buttons in the corners */
 @media (orientation: portrait) {
-  .scene.tall { bottom: calc(var(--floor, 30%) - 7.69cqw); width: 100cqw; aspect-ratio: 5.2 / 3.984; } /* the floor line is --floor up from the bottom: the gap over the Punch button is the gap under the Kick button (measured in floor.ts) */
+  .scene.tall { bottom: calc(var(--floor, 30%) - 7.14cqw); width: 100cqw; aspect-ratio: 5.6 / 4.2897; } /* the floor line is --floor up from the bottom: the gap over the Punch button is the gap under the Kick button (measured in floor.ts) */
   .scene.tall .slot { top: -4%; }
-  .scene.tall .slot.player { left: 15.4%; }
-  .scene.tall .slot.enemy { left: 84.6%; }
+  .scene.tall .slot.player { left: 17.9%; }
+  .scene.tall .slot.enemy { left: 82.1%; }
   .arena.three.has-bg .slot, .arena.three .slot { top: calc(100% - var(--floor, 30%) - 38%); }
   .arena.three .slot.player { left: 19%; }
   .arena.three .slot.enemy { left: 81%; }

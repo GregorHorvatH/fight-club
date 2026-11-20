@@ -1,6 +1,6 @@
 import { CRIT_CHANCE, CRIT_MULT, DAMAGE_MAX, DAMAGE_MIN, KICK_MULT, KICK_RECOIL, STREAK_BONUS, STREAK_CAP } from './config'
 import type { Rng } from './rng'
-import type { Move, Side, Weapon, Zone } from './types'
+import { opponent, type Move, type Side, type Weapon, type Zone } from './types'
 
 /** One strike thrown by one fighter. */
 export interface Strike {
@@ -14,14 +14,39 @@ export interface Strike {
   recoil: number
 }
 
+/** Why this fighter strikes first: a punch is faster than a kick; with the same weapon the more wounded one is quicker; then luck. */
+export type Initiative = 'speed' | 'health' | 'luck'
+
 export interface RoundResult {
   round: number
   moves: Record<Side, Move>
-  /** strikes[side] is the strike thrown BY that side (it lands on the other one) */
-  strikes: Record<Side, Strike>
-  /** health after the round */
+  /** the fighter who strikes first, and why */
+  first: Side
+  firstBy: Initiative
+  /** strikes[side] is the strike thrown BY that side (it lands on the other one); null when the fight was decided before its turn */
+  strikes: Record<Side, Strike | null>
+  /** health before the round, after the first strike, and after the round */
+  hpBefore: Record<Side, number>
+  /** strikes landed in a row, per fighter, before the round (the combo shown while the round is replayed) */
+  streakBefore: Record<Side, number>
+  hpAfterFirst: Record<Side, number>
   hp: Record<Side, number>
 }
+
+/**
+ * Who strikes first. A punch is fast and a kick is slow, so a punch lands before a kick (this is what a kick pays for its extra
+ * damage). With the same weapon the fighter with less health is quicker (the underdog is given the chance), and when that is equal
+ * too, a coin decides: only then is a random number drawn.
+ */
+export function whoFirst(moves: Record<Side, Move>, hp: Record<Side, number>, rng: Rng): { first: Side; by: Initiative } {
+  const slow = (s: Side): number => (moves[s].weapon === 'foot' ? 1 : 0)
+  if (slow('player') !== slow('enemy')) return { first: slow('player') < slow('enemy') ? 'player' : 'enemy', by: 'speed' }
+  if (hp.player !== hp.enemy) return { first: hp.player < hp.enemy ? 'player' : 'enemy', by: 'health' }
+  return { first: rng() < 0.5 ? 'player' : 'enemy', by: 'luck' }
+}
+
+/** The other fighter (the one who has to guard). */
+export const defender = opponent
 
 /**
  * Resolves one strike. Always consumes exactly two random numbers, so a scripted generator stays in step

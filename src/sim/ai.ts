@@ -1,4 +1,4 @@
-import { AI_MEMORY, HARD_CONFIDENCE, HARD_KICK_THRESHOLD } from './config'
+import { AI_MEMORY, HARD_CONFIDENCE, HARD_KICK_THRESHOLD, KICK_SAFE_HP } from './config'
 import type { Rng } from './rng'
 import { ZONES, type Difficulty, type Move, type Weapon, type Zone } from './types'
 
@@ -46,9 +46,10 @@ function weaponFor(difficulty: Difficulty, pHit: number, rng: Rng): Weapon {
  *  - easy:   pure guesswork
  *  - normal: matches the player's habits (guards where the player tends to strike, strikes where the player tends not to guard)
  *  - hard:   same, but nearly always takes the most likely zone
- * The smarter AIs also choose between a punch and a kick: they kick when they expect the zone to be unguarded.
+ * The smarter AIs also choose between a punch and a kick: they kick when they expect the zone to be unguarded, unless they are nearly
+ * out of health (`hp`): a kick is slow, and the other one's faster punch would land first.
  */
-export function chooseMove(history: readonly Move[], difficulty: Difficulty, rng: Rng): Move {
+export function chooseMove(history: readonly Move[], difficulty: Difficulty, rng: Rng, hp = Infinity): Move {
   if (difficulty === 'easy' || history.length === 0) {
     return { attack: sample(uniform(), rng), weapon: rng() < 0.5 ? 'hand' : 'foot', block: sample(uniform(), rng) }
   }
@@ -66,5 +67,6 @@ export function chooseMove(history: readonly Move[], difficulty: Difficulty, rng
     block = sure ? top(likelyStrike, rng) : sample(uniform(), rng)
     attack = sure ? top(weak, rng) : sample(uniform(), rng)
   }
-  return { attack, weapon: weaponFor(difficulty, 1 - likelyGuard[attack], rng), block }
+  const weapon = hp <= KICK_SAFE_HP ? 'hand' : weaponFor(difficulty, 1 - likelyGuard[attack], rng)
+  return { attack, weapon, block }
 }

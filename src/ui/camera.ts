@@ -8,7 +8,7 @@ const VIEW = {
   far: { position: [0, 3.2, 11.2], look: 2.18 },
 } as const
 /** How much of the width of the ring must be in the frame: the fighters stand at +-1.8, and a body, a foot or a fist reaches a bit past that. */
-export const HALF_WIDTH = 2.6
+export const HALF_WIDTH = 2.8
 /** In a tall window, where the feet stand if nothing says otherwise: this far up from the bottom edge, as a fraction of the height. */
 const FEET_UP = 0.3
 

@@ -5,9 +5,9 @@ import { useSettings } from '../state/settings'
 import { useFighterView } from './arenaView'
 import { Floats, Scene2D } from './Fighter'
 import { Sides } from './Controls'
+import { Captions } from './Caption'
 import { Intro } from './Intro'
 import { useFloor } from './floor'
-import { LogOverlay } from './Log'
 import { usePortrait } from './usePortrait'
 
 // three.js is ~250 kB gzipped: it is only downloaded when the 3D view is first opened
@@ -33,9 +33,6 @@ export function Arena() {
       // `--stand`: how far down the frame the fighters are moved (the labels over their heads follow)
       style={{ ...(floor !== null ? { '--floor': `${floor}px` } : {}), ...(arena ? { '--stand': arena.stand, backgroundImage: `linear-gradient(rgba(10, 9, 16, 0.18), rgba(10, 9, 16, 0.42)), url(${arenaUrl(arena.file)})` } : {}) } as CSSProperties}
     >
-      {/* the log is on the field, behind the fighters (it comes before them, so they stand in front of it) */}
-      <LogOverlay side="player" />
-      <LogOverlay side="enemy" />
       {view === '3d' ? (
         <>
           <Suspense fallback={<div className="loading">Loading 3D…</div>}>
@@ -48,6 +45,7 @@ export function Arena() {
         <Scene2D key={key} player={player} enemy={enemy} settled={settled} far={arena !== null} stand={arena?.stand ?? 0} />
       )}
       <Sides />
+      <Captions />
       <Intro />
     </div>
   )
