@@ -4,6 +4,7 @@
  * window. Parameters (all optional):
  *   arena=sunset   the arena (an id from public/arenas/arenas.json)
  *   t=285          how many milliseconds into the round to freeze (the blows connect at 300)
+ *   lag=0.28       seconds between the contact and the moment shown (the flash of the blow fades)
  *   yaw=30         how far the heads are turned toward the camera, in degrees
  *   p=head.hand    the strike of the left fighter (zone.weapon); the right fighter takes it
  *   cam=0,3.2,11.2,2.18   a camera of its own: x,y,z of the position, then the height it looks at
@@ -28,13 +29,17 @@ function strike(param: string, fallback: string): { zone: Zone; weapon: Weapon }
 }
 
 const left = strike('p', 'head.hand')
-// one strike is staged: the left fighter strikes, the right one takes it (the strikes of a round come one after the other)
+// one strike is staged: the left fighter strikes, the right one takes it (the strikes of a round come one after the other).
+// The blow connected `lag` seconds before the moment that is shown: the white flash and the spark have faded and the faces can be seen.
+const lag = Number(q.get('lag') ?? 0.28)
+const shownAt = Number(q.get('t') ?? 285) / 1000
 const times = { strikeAt: 0, hitAt: IMPACT, endAt: IMPACT }
+const hitTimes = { strikeAt: 0, hitAt: shownAt - lag, endAt: shownAt - lag }
 const striker = (mine: typeof left): FighterView => ({
   shield: null, incoming: null, aim: null, strike: mine, foe: null, times, stumble: false, ko: false, won: false, labels: [],
 })
 const struck = (theirs: typeof left): FighterView => ({
-  shield: null, incoming: { zone: theirs.zone, blocked: false, weapon: theirs.weapon }, aim: null, strike: null, foe: theirs, times, stumble: false, ko: false, won: false, labels: [],
+  shield: null, incoming: { zone: theirs.zone, blocked: false, weapon: theirs.weapon }, aim: null, strike: null, foe: theirs, times: hitTimes, stumble: false, ko: false, won: false, labels: [],
 })
 
 const cam = q.get('cam')?.split(',').map(Number)
