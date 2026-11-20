@@ -347,3 +347,25 @@ kbd {
 @keyframes superGlow { 50% { box-shadow: 0 0 22px #b9a2ffcc; } }
 .weapon.super span { min-width: 0; font-size: .78em; line-height: 1.1; overflow-wrap: anywhere; }
 .weapon.super.on { background: linear-gradient(90deg, #8a6bffaa var(--meter, 0%), #3a2f66 var(--meter, 0%)); }
+
+/* ---- the ladder of a tournament: the opponents in the order of the fights, the next one lit ---- */
+.ladder .who { margin: 0 0 8px !important; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.rungs-view { margin: 0 0 6px; overflow: hidden; border-radius: 12px; }
+.rungs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; transform-origin: 0 0; }
+/* the start of a tournament: the ladder, enlarged (about its left edge, so that the number, the face and the name stay in view), scrolls from the hardest at the bottom to the easiest at the top, then zooms out */
+.rungs.tour { animation: ladderTour 5s cubic-bezier(.45, 0, .25, 1) both; will-change: transform; } /* LADDER_TOUR_MS */
+@keyframes ladderTour {
+  0% { transform: translateY(-160%) scale(2.6); }
+  66% { transform: translateY(0) scale(2.6); }
+  100% { transform: translateY(0) scale(1); }
+}
+.rung { display: grid; grid-template-columns: 1.6em 44px 1fr auto 1.4em; align-items: center; gap: 10px; padding: 5px 10px; text-align: left; background: var(--panel-2); border: 2px solid transparent; border-radius: 12px; transition: transform .35s, border-color .35s, background .35s, opacity .35s, box-shadow .35s; }
+.rung .n { color: var(--dim); font-weight: 800; text-align: center; }
+.rung .face { width: 44px; height: 44px; border-radius: 8px; overflow: hidden; background: #14224f; display: grid; place-items: center; }
+.rung .face img { width: 100%; height: 100%; object-fit: cover; }
+.rung .nm { font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.rung .lv { font-size: .68rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.rung .tick { color: var(--player); font-weight: 900; }
+.rung.beaten { opacity: .45; }
+.rung.now { border-color: var(--gold); background: #ffc85222; transform: scale(1.04); box-shadow: 0 0 18px #ffc85555; }
+.rung.next { opacity: .85; }

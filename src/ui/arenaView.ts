@@ -1,8 +1,9 @@
+import { useTranslation } from 'react-i18next'
 import { opponent, type Side, type Weapon, type Zone } from '../sim'
 import { turnOf, useGame, type Choice } from '../state/game'
 import { fighterOf } from '../state/roster'
 import { IMPACT, SUPER_GAP, timelineOf } from '../timing'
-import type { PoseInput, SuperStyle } from './pose'
+import type { Fidget, PoseInput, SuperStyle } from './pose'
 
 export interface Incoming {
   /** the part of the blow the fighter reacts to: the first one that landed (a super strike has two parts) */
@@ -57,6 +58,12 @@ export interface FighterView {
   times: Times
   /** this fighter's own kick was guarded: it stumbles */
   stumble: boolean
+  /** while the player is choosing the fighter fidgets now and then (the seed makes the two different) */
+  idleSeed?: number
+  /** a given fidget (the poster scene) */
+  idleForce?: Fidget
+  /** walking onto the arena (the start of a match), or waiting off the frame (while the ladder of a tournament is shown) */
+  entrance?: 'walk' | 'wait' | 'leave'
   /** this fighter is down */
   ko: boolean
   /** the opponent is down and this fighter is not: it celebrates */
@@ -90,6 +97,7 @@ export function aimed(c: Pick<Choice, 'attack' | 'attack2' | 'weapon'>, hovered:
 
 /** Reads the game and works out how one fighter looks right now. */
 export function useFighterView(side: Side): FighterView {
+  const { t } = useTranslation()
   const { phase, mode, match, choice, last, hover, tap, setHover, fighters } = useGame()
   const other = opponent(side)
   const reveal = phase === 'reveal' || phase === 'over' ? last : null
@@ -107,12 +115,12 @@ export function useFighterView(side: Side): FighterView {
       parts.forEach((p, i) => {
         labels.push(
           p.blocked
-            ? { text: 'BLOCK', kind: 'block', at: at + i * SUPER_GAP }
-            : { text: `-${p.damage}${incoming.crit ? ' CRIT!' : ''}`, kind: incoming.crit ? 'crit' : 'hit', at: at + i * SUPER_GAP },
+            ? { text: t('float.block'), kind: 'block', at: at + i * SUPER_GAP }
+            : { text: `-${p.damage}${incoming.crit ? ` ${t('float.crit')}` : ''}`, kind: incoming.crit ? 'crit' : 'hit', at: at + i * SUPER_GAP },
         )
       })
     }
-    if (own?.recoil) labels.push({ text: `STUMBLE -${own.recoil}`, kind: 'stumble', at: tl.hitAt[side]! + 0.25 })
+    if (own?.recoil) labels.push({ text: t('float.stumble', { n: own.recoil }), kind: 'stumble', at: tl.hitAt[side]! + 0.25 })
   }
   // the picks of the one who is choosing are shown on the field: the guard on their own fighter, the strike on the other. Between
   // two people nobody else's picks are ever shown (the other one is looking at the same screen).
@@ -137,6 +145,10 @@ export function useFighterView(side: Side): FighterView {
     ko: (phase === 'reveal' || phase === 'over') && match.hp[side] === 0,
     won: (phase === 'reveal' || phase === 'over') && match.hp[side] > 0 && match.hp[other] === 0,
     labels,
+    idleSeed: phase === 'choose' ? (side === 'player' ? 1 : 2.7) : undefined,
+    // at the start of a match the fighters walk in from both sides; until then (the menus, the choice of the fighter, the ladder of
+    // a tournament) they are still outside the frame
+    entrance: phase === 'leave' ? 'leave' : phase === 'menu' || phase === 'about' || phase === 'options' || phase === 'setup' || phase === 'select' || phase === 'ladder' ? 'wait' : phase === 'choose' && match.round === 0 ? 'walk' : undefined,
   }
 }
 
@@ -167,4 +179,6 @@ export const poseInput = (v: FighterView): PoseInput => ({
   ko: v.ko,
   won: v.won,
   endAt: v.times.endAt,
+  entrance: v.entrance,
+  idle: v.idleSeed === undefined ? undefined : { seed: v.idleSeed, force: v.idleForce },
 })

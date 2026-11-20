@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { turnOf, useGame } from '../state/game'
 import { hintMiddle, useLayout } from '../state/layout'
@@ -5,29 +6,26 @@ import { buttonKey, superKey } from '../input'
 import { SUPER_METER, superReady, type Side, type Weapon } from '../sim'
 import { fighterOf } from '../state/roster'
 import { Hint } from './Log'
-import { STEP_TEXT, stepOf } from './steps'
+import { stepOf, stepText } from './steps'
 
-const WEAPON_LABEL: Record<Weapon, string> = { hand: 'Punch', foot: 'Kick', super: 'Super' }
 const WEAPON_ICON: Record<Weapon, string> = { hand: '✊', foot: '🦶', super: '✦' }
-const WEAPON_HINT: Record<Weapon, string> = {
-  hand: 'Punch: fast, so it strikes before a kick. Steady damage.',
-  foot: 'Kick: slow (a punch strikes first), 1.4x the damage, but if it is guarded you stumble and lose 7 health.',
-  super: 'Super strike: hits two zones of your choice at once (a guard covers only one), every part that lands is a critical hit, and it is the slowest strike of all. The meter fills when you land a blow or hold a guard.',
-}
+const WEAPON_TEXT = { hand: 'punch', foot: 'kick', super: 'super' } as const
+const HINT_KEY = { hand: 'weaponHint.hand', foot: 'weaponHint.foot', super: 'weaponHint.super' } as const
 
 const WEAPON_KEY = (side: Side, w: Weapon): string => (w === 'super' ? superKey(side) : buttonKey(side, w === 'hand' ? 'punch' : 'kick'))
 
 /** What to strike with: a punch or a kick. A column of two buttons that stands behind James's back. */
 function WeaponButtons({ side }: { side: Side }) {
+  const { t } = useTranslation()
   const c = useGame((s) => s.choice[side])
   const phase = useGame((s) => s.phase)
   const setWeapon = useGame((s) => s.setWeapon)
   return (
     <>
       {(['hand', 'foot'] as const).map((w) => (
-        <button key={w} className={`weapon${c.weapon === w ? ' on' : ''}`} disabled={phase !== 'choose'} aria-pressed={c.weapon === w} title={WEAPON_HINT[w]} onClick={() => setWeapon(side, w)}>
+        <button key={w} className={`weapon${c.weapon === w ? ' on' : ''}`} disabled={phase !== 'choose'} aria-pressed={c.weapon === w} title={t(HINT_KEY[w])} onClick={() => setWeapon(side, w)}>
           <i aria-hidden="true">{WEAPON_ICON[w]}</i>
-          <span>{WEAPON_LABEL[w]}</span>
+          <span>{t(`weapon.${WEAPON_TEXT[w]}`)}</span>
           <kbd>{WEAPON_KEY(side, w)}</kbd>
         </button>
       ))}
@@ -40,6 +38,7 @@ function WeaponButtons({ side }: { side: Side }) {
  * when it is ready. It hits two zones of the enemy, which are chosen one after the other.
  */
 function SuperButton({ side }: { side: Side }) {
+  const { t } = useTranslation()
   const c = useGame((s) => s.choice[side])
   const phase = useGame((s) => s.phase)
   const setWeapon = useGame((s) => s.setWeapon)
@@ -54,7 +53,7 @@ function SuperButton({ side }: { side: Side }) {
       style={{ '--meter': `${Math.round((meter / SUPER_METER) * 100)}%` } as CSSProperties}
       disabled={phase !== 'choose' || !ready}
       aria-pressed={on}
-      title={`${style.name}: ${WEAPON_HINT.super}`}
+      title={`${style.name}: ${t('weaponHint.super')}`}
       // a second tap takes it back: the strike is a punch again
       onClick={() => setWeapon(side, on ? 'hand' : 'super')}
     >
@@ -70,6 +69,7 @@ function SuperButton({ side }: { side: Side }) {
  * people); while a round is replayed it is "Next", which skips the replay.
  */
 function GoButton({ side }: { side: Side }) {
+  const { t } = useTranslation()
   const c = useGame((s) => s.choice[side])
   const phase = useGame((s) => s.phase)
   const mode = useGame((s) => s.mode)
@@ -78,7 +78,7 @@ function GoButton({ side }: { side: Side }) {
   if (phase === 'reveal') {
     return (
       <button className="go" onClick={next}>
-        <span>Next</span>
+        <span>{t('go.next')}</span>
         <kbd>Enter</kbd>
       </button>
     )
@@ -88,7 +88,7 @@ function GoButton({ side }: { side: Side }) {
   const first = mode === 'duo' && side === 'player' // the first of two people only locks in; the second one starts the round
   return (
     <button className={`go${waiting ? ' wait' : ''}`} onClick={() => lock(side)} disabled={phase !== 'choose' || waiting}>
-      <span>{waiting ? STEP_TEXT[step] : first ? 'Lock in' : 'Fight!'}</span>
+      <span>{waiting ? stepText(step, t) : first ? t('go.lockIn') : t('go.fight')}</span>
       <kbd>{mode === 'solo' ? 'Enter' : buttonKey(side, 'fight')}</kbd>
     </button>
   )

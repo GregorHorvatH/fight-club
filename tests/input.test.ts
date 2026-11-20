@@ -1,15 +1,24 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../src/audio/synth', () => ({ play: () => undefined }))
 
 const { BUTTONS, KEYS, buttonCode, buttonKey, handleKey, zoneCode, zoneKey } = await import('../src/input')
-const { useGame, toggleZone } = await import('../src/state/game')
+const { useGame, toggleZone, nextRound, LEAVE_MS } = await import('../src/state/game')
 const { aimed } = await import('../src/ui/arenaView')
+
+/** The fighters leave the arena before the main menu is shown: let them go (the timer of a test that runs it on a fake clock). */
+const letThemLeave = () => {
+  vi.advanceTimersByTime(LEAVE_MS + 10)
+}
 const { useSettings } = await import('../src/state/settings')
 const { MENU, useMenu } = await import('../src/state/menu')
 const roster = await import('../src/state/roster')
+const { useUnlocks } = await import('../src/state/unlocks')
+const { STAGES, difficultyAt, ladderFor } = await import('../src/state/tournament')
 const { ZONES } = await import('../src/sim')
-const { IDLE_MS, STEP_TEXT, idleHint, stepOf } = await import('../src/ui/steps')
+const { IDLE_MS, stepText, idleHint, stepOf } = await import('../src/ui/steps')
+const { i18next } = await import('../src/i18n')
+const t = i18next.t.bind(i18next) as unknown as import('i18next').TFunction
 
 describe('the keys form the same picture as the screen', () => {
   it('every player has ten different keys (nine on the grid and the super strike), and the two players share none', () => {
@@ -205,10 +214,10 @@ describe('what is still missing', () => {
   })
 
   it('says something for every step that is waiting, and nothing once the round can start', () => {
-    expect(STEP_TEXT.both).toMatch(/guard and a strike/i)
-    expect(STEP_TEXT.guard).toMatch(/guard/i)
-    expect(STEP_TEXT.strike).toMatch(/strike/i)
-    expect(STEP_TEXT.ready).toBe('')
+    expect(stepText('both', t)).toMatch(/guard and a strike/i)
+    expect(stepText('guard', t)).toMatch(/guard/i)
+    expect(stepText('strike', t)).toMatch(/strike/i)
+    expect(stepText('ready', t)).toBe('')
   })
 })
 
@@ -227,19 +236,19 @@ describe('the hint for a player who does not choose', () => {
   })
 
   it('says what is still missing and where to tap', () => {
-    expect(idleHint('both', 'James', 'Amy')).toMatch(/James to guard.*Amy to strike/)
-    expect(idleHint('guard', 'James', 'Amy')).toMatch(/guard.*tap James/)
-    expect(idleHint('strike', 'James', 'Amy')).toMatch(/strike.*tap Amy/)
+    expect(idleHint('both', 'James', 'Amy', t)).toMatch(/James to guard.*Amy to strike/)
+    expect(idleHint('guard', 'James', 'Amy', t)).toMatch(/guard.*tap James/)
+    expect(idleHint('strike', 'James', 'Amy', t)).toMatch(/strike.*tap Amy/)
   })
 
   it('can speak to the player directly (two players)', () => {
-    expect(idleHint('guard', 'yourself', 'Amy')).toMatch(/tap yourself/)
-    expect(idleHint('both', 'yourself', 'Amy')).toBe('Tap yourself to guard a zone and Amy to strike one')
+    expect(idleHint('guard', 'yourself', 'Amy', t)).toMatch(/tap yourself/)
+    expect(idleHint('both', 'yourself', 'Amy', t)).toBe('Tap yourself to guard a zone and Amy to strike one')
   })
 
   it('says nothing when the choice is complete or already locked in (the fight button is ready)', () => {
-    expect(idleHint('ready', 'James', 'Amy')).toBe('')
-    expect(idleHint('locked', 'James', 'Amy')).toBe('')
+    expect(idleHint('ready', 'James', 'Amy', t)).toBe('')
+    expect(idleHint('locked', 'James', 'Amy', t)).toBe('')
   })
 })
 
@@ -290,13 +299,17 @@ describe('the main menu', () => {
     expect(useSettings.getState().mode).toBe('duo')
   })
 
-  it('tournament and options are only places in the menu for now: they say so and start nothing', () => {
-    handleKey('ArrowUp')
+  it('the tournament opens its setup, and the options open the languages', () => {
+    handleKey('ArrowUp') // up from arcade: tournament
     handleKey('Enter')
+    expect(useGame.getState().phase).toBe('setup')
+    expect(useGame.getState().inTournament).toBe(true)
+    handleKey('Escape')
+    useMenu.setState({ cursor: 'options', soon: null })
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('options')
+    handleKey('Escape')
     expect(useGame.getState().phase).toBe('menu')
-    expect(useMenu.getState().soon).toBe('tournament')
-    handleKey('ArrowDown') // moving the cursor takes the message away
-    expect(useMenu.getState().soon).toBeNull()
   })
 
   it('on the setup screen up / down move between Select fighter and Back, and Enter chooses: the cursor starts on Select fighter', () => {
@@ -322,7 +335,10 @@ describe('the main menu', () => {
     useGame.getState().start()
     expect(useGame.getState().phase).toBe('choose')
     useGame.setState({ phase: 'over' })
+    vi.useFakeTimers()
     handleKey('Escape')
+    letThemLeave()
+    vi.useRealTimers()
     expect(useGame.getState().phase).toBe('menu')
   })
 })
@@ -360,22 +376,43 @@ describe('the pause', () => {
     press('ArrowDown')
     expect(useGame.getState().pauseItem).toBe('again')
     press('ArrowDown')
+    expect(useGame.getState().pauseItem).toBe('controls')
+    press('ArrowDown')
     expect(useGame.getState().pauseItem).toBe('menu')
     press('ArrowDown') // wraps around
     expect(useGame.getState().pauseItem).toBe('continue')
     press('ArrowUp')
     expect(useGame.getState().pauseItem).toBe('menu')
-    press('ArrowUp', 'ArrowUp', 'Enter') // back on Continue
+    press('ArrowUp', 'ArrowUp', 'ArrowUp', 'Enter') // back on Continue
     expect(useGame.getState().paused).toBe(false)
     expect(useGame.getState().phase).toBe('choose')
   })
 
   it('Back to main menu leaves the fight for the main menu', () => {
-    press('KeyE', 'KeyQ', 'Escape', 'ArrowDown', 'ArrowDown', 'Enter')
+    vi.useFakeTimers()
+    press('KeyE', 'KeyQ', 'Escape', 'ArrowUp', 'Enter') // (up from Continue: the last item)
+    letThemLeave()
+    vi.useRealTimers()
     const g = useGame.getState()
     expect(g.paused).toBe(false)
     expect(g.phase).toBe('menu')
     expect(g.choice.player.attack).toBeNull()
+  })
+
+  it('Controls shows the layout of the keys; Esc (or Enter) goes back to the list, and the fight is still paused', () => {
+    press('Escape', 'ArrowDown', 'ArrowDown', 'Enter')
+    expect(useGame.getState().pauseControls).toBe(true)
+    expect(useGame.getState().paused).toBe(true)
+    press('KeyE') // nothing else does anything meanwhile
+    expect(useGame.getState().choice.player.attack).toBeNull()
+    press('Escape')
+    expect(useGame.getState().pauseControls).toBe(false)
+    expect(useGame.getState().paused).toBe(true)
+    expect(useGame.getState().pauseItem).toBe('controls')
+    press('Enter', 'Enter')
+    expect(useGame.getState().pauseControls).toBe(false)
+    press('Escape') // continues
+    expect(useGame.getState().paused).toBe(false)
   })
 
   it('Fight again, while choosing, clears the picks and goes on choosing', () => {
@@ -441,7 +478,10 @@ describe('the end screen', () => {
     handleKey('ArrowDown') // wraps around
     expect(useGame.getState().endItem).toBe('again')
     handleKey('ArrowUp')
+    vi.useFakeTimers()
     handleKey('Enter')
+    letThemLeave()
+    vi.useRealTimers()
     expect(useGame.getState().phase).toBe('menu')
   })
 
@@ -454,7 +494,8 @@ describe('the end screen', () => {
 })
 
 describe('choosing the fighter', () => {
-  const { FIGHTERS, SLOTS, columnsFor, slotFighter, isUnlocked, rivalOf } = roster
+  const { FIGHTERS, SLOTS, columnsFor, slotFighter, isUnlocked, rivalOf, fighterOf } = roster
+  beforeEach(() => useUnlocks.getState().reset())
   const open = (mode: 'solo' | 'duo') => {
     useSettings.setState({ mode })
     useGame.getState().toMenu()
@@ -472,9 +513,11 @@ describe('choosing the fighter', () => {
     expect(slotFighter(SLOTS)).toBeNull()
   })
 
-  it('everybody can be chosen for now (nothing unlocks them yet), the starters in any case', () => {
-    expect(FIGHTERS.every((f) => isUnlocked(f))).toBe(true)
+  it('only the starters can be chosen at first; the others are "?" until they are beaten in the tournament', () => {
     expect(FIGHTERS.filter((f) => f.starter).map((f) => f.id)).toEqual(['james', 'amy'])
+    expect(FIGHTERS.filter((f) => isUnlocked(f)).map((f) => f.id)).toEqual(['james', 'amy'])
+    useUnlocks.getState().unlock('pete')
+    expect(isUnlocked(fighterOf('pete'))).toBe(true)
   })
 
   it('every tile is full and the grid has no gaps in both layouts', () => {
@@ -526,7 +569,15 @@ describe('choosing the fighter', () => {
     expect(g.fighters.enemy).not.toBe('amy')
   })
 
-  it('any fighter can be chosen, and the enemy is never the same one', () => {
+  it('a fighter that is not unlocked is a "?": it cannot be chosen', () => {
+    open('solo')
+    useGame.getState().pointSelect(5)
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('select')
+  })
+
+  it('any unlocked fighter can be chosen, and the enemy is never the same one', () => {
+    useUnlocks.getState().unlockAll(FIGHTERS.map((f) => f.id))
     for (let slot = 0; slot < FIGHTERS.length; slot++) {
       open('solo')
       useGame.getState().pointSelect(slot)
@@ -663,5 +714,332 @@ describe('what glows on the enemy while the zones of a super strike are chosen',
     expect(aimed(c('head', 'legs'), 'body')).toEqual(['legs', 'body'])
     expect(aimed(c('head', 'legs'), 'legs')).toEqual(['head', 'legs'])
     expect(aimed(c('head', 'legs'), null)).toEqual(['head', 'legs'])
+  })
+})
+
+
+describe('the tournament', () => {
+  const { FIGHTERS } = roster
+  const ids = FIGHTERS.map((f) => f.id)
+  const startTournament = (hero: number = 0) => {
+    useGame.getState().toMenu()
+    useGame.getState().openTournament()
+    useGame.getState().setSelectColumns(5)
+    handleKey('Enter') // Select fighter
+    useGame.getState().pointSelect(hero)
+    handleKey('Enter')
+    handleKey('Enter') // the ladder is shown first: Enter skips the wait
+  }
+  /** the end screen's "again": the ladder is shown, and then the fight begins */
+  const again = () => {
+    handleKey('Enter')
+    if (useGame.getState().phase === 'ladder') handleKey('Enter')
+  }
+  /** wins the match that is on: the enemy is at 0 health, and the replay ends the match */
+  const winNow = () => {
+    const g = useGame.getState()
+    useGame.setState({ phase: 'reveal', last: g.last, match: { ...g.match, status: 'won', hp: { player: 40, enemy: 0 } } })
+    useGame.getState().next()
+  }
+  const loseNow = () => {
+    const g = useGame.getState()
+    useGame.setState({ phase: 'reveal', match: { ...g.match, status: 'lost', hp: { player: 0, enemy: 40 } } })
+    useGame.getState().next()
+  }
+
+  beforeEach(() => {
+    useUnlocks.getState().reset()
+    useSettings.setState({ mode: 'solo' })
+  })
+
+  it('the ladder: the fighters not unlocked yet, from the weakest, STAGES of them, never the hero', () => {
+    const ladder = ladderFor('james', (id) => !['james', 'amy'].includes(id))
+    expect(ladder).toHaveLength(STAGES)
+    expect(ladder).not.toContain('james')
+    expect(ladder).not.toContain('amy') // already unlocked: not needed to fill it
+    expect(ladder).toEqual(ids.filter((id) => ladder.includes(id))) // in the order of the roster
+    expect(ladder[0]).toBe('pete')
+  })
+
+  it('when few are left to unlock, the strongest of the others fill the ladder', () => {
+    const ladder = ladderFor('james', (id) => id === 'pete') // only pete is locked
+    expect(ladder).toHaveLength(STAGES)
+    expect(ladder).toContain('pete')
+    expect(ladder[ladder.length - 1]).toBe('vanguard')
+  })
+
+  it('the enemy gets cleverer along the ladder: easy, then normal, then hard', () => {
+    const d = Array.from({ length: STAGES }, (_, i) => difficultyAt(i, STAGES))
+    expect(d[0]).toBe('easy')
+    expect(d[STAGES - 1]).toBe('hard')
+    expect(d).toContain('normal')
+    expect(d).toEqual([...d].sort((a, b) => ['easy', 'normal', 'hard'].indexOf(a) - ['easy', 'normal', 'hard'].indexOf(b)))
+  })
+
+  it('after choosing the fighter the ladder is shown with the first opponent lit, and only then does the fight begin', () => {
+    useGame.getState().toMenu()
+    useGame.getState().openTournament()
+    useGame.getState().setSelectColumns(5)
+    handleKey('Enter')
+    handleKey('Enter') // James
+    const g = useGame.getState()
+    expect(g.phase).toBe('ladder')
+    expect(g.ladderFrom).toBeNull()
+    expect(g.tournament!.stage).toBe(0)
+    expect(g.match.round).toBe(0)
+    handleKey('Enter') // skip the wait
+    expect(useGame.getState().phase).toBe('choose')
+  })
+
+  it('after a win the ladder is shown again: the highlight is to move from the opponent just beaten to the next, before the fight', () => {
+    startTournament(0)
+    winNow()
+    handleKey('Enter')
+    const g = useGame.getState()
+    expect(g.phase).toBe('ladder')
+    expect(g.ladderFrom).toBe(0)
+    expect(g.tournament!.stage).toBe(1)
+    expect(g.fighters.enemy).toBe(g.tournament!.ladder[1])
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('choose')
+    expect(useGame.getState().tournament!.stage).toBe(1)
+  })
+
+  it('Esc on the ladder leaves the tournament', () => {
+    useGame.getState().toMenu()
+    useGame.getState().openTournament()
+    handleKey('Enter')
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('ladder')
+    handleKey('Escape')
+    expect(useGame.getState().phase).toBe('menu')
+    expect(useGame.getState().tournament).toBeNull()
+  })
+
+  it('the fighters beaten stay unlocked: in the menu, in other modes and in the next tournament', () => {
+    startTournament(0)
+    const first = useGame.getState().tournament!.ladder[0]!
+    winNow()
+    useGame.getState().toMenu()
+    expect(roster.isUnlocked(roster.fighterOf(first))).toBe(true)
+    // chosen in an arcade fight
+    useGame.getState().openSetup('solo')
+    useGame.getState().setSelectColumns(5)
+    handleKey('Enter')
+    useGame.getState().pointSelect(roster.FIGHTERS.findIndex((f) => f.id === first))
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('choose')
+    expect(useGame.getState().fighters.player).toBe(first)
+  })
+
+  it('the setup has no difficulty to choose, and the fighter you choose starts the first stage against the weakest opponent', () => {
+    startTournament(0)
+    const g = useGame.getState()
+    expect(g.phase).toBe('choose')
+    expect(g.tournament).toMatchObject({ hero: 'james', stage: 0, unlocked: null })
+    expect(g.fighters).toEqual({ player: 'james', enemy: g.tournament!.ladder[0] })
+    expect(g.match.difficulty).toBe('easy')
+  })
+
+  it('a win unlocks the opponent for good, and "again" goes on to the next one, a stage tougher', () => {
+    startTournament(0)
+    const first = useGame.getState().tournament!.ladder[0]!
+    winNow()
+    let g = useGame.getState()
+    expect(g.phase).toBe('over')
+    expect(g.tournament!.unlocked).toBe(first)
+    expect(useUnlocks.getState().unlocked).toContain(first)
+    handleKey('Enter') // next fight: the ladder first, the highlight moves to the next opponent
+    expect(useGame.getState().phase).toBe('ladder')
+    expect(useGame.getState().ladderFrom).toBe(0)
+    handleKey('Enter')
+    g = useGame.getState()
+    expect(g.phase).toBe('choose')
+    expect(g.tournament!.stage).toBe(1)
+    expect(g.fighters.enemy).toBe(g.tournament!.ladder[1])
+    expect(g.match.round).toBe(0)
+  })
+
+  it('a defeat unlocks nothing, and "again" is a retry of the same stage', () => {
+    startTournament(0)
+    const first = useGame.getState().tournament!.ladder[0]!
+    loseNow()
+    expect(useUnlocks.getState().unlocked).not.toContain(first)
+    again()
+    const g = useGame.getState()
+    expect(g.phase).toBe('choose')
+    expect(g.tournament!.stage).toBe(0)
+    expect(g.fighters.enemy).toBe(first)
+  })
+
+  it('beating the last opponent wins the tournament: "again" starts a new one with a fresh ladder', () => {
+    startTournament(0)
+    for (let i = 0; i < STAGES; i++) {
+      winNow()
+      expect(useGame.getState().phase).toBe('over')
+      if (i < STAGES - 1) again()
+    }
+    expect(STAGES).toBeGreaterThan(1)
+    // everybody on the ladder was unlocked
+    for (const id of useGame.getState().tournament!.ladder) expect(useUnlocks.getState().unlocked).toContain(id)
+    again()
+    const g = useGame.getState()
+    expect(g.phase).toBe('choose')
+    expect(g.tournament!.stage).toBe(0)
+    expect(g.tournament!.hero).toBe('james')
+  })
+
+  it('the menu ends the tournament, and a tournament does not count toward the record', () => {
+    startTournament(0)
+    winNow()
+    vi.useFakeTimers()
+    handleKey('Escape')
+    letThemLeave()
+    vi.useRealTimers()
+    expect(useGame.getState().phase).toBe('menu')
+    expect(useGame.getState().tournament).toBeNull()
+    expect(useGame.getState().inTournament).toBe(false)
+  })
+
+  it('the next tournament takes those who are not unlocked yet', () => {
+    startTournament(0)
+    const ladder1 = useGame.getState().tournament!.ladder
+    for (let i = 0; i < STAGES; i++) {
+      winNow()
+      if (i < STAGES - 1) again()
+    }
+    useGame.getState().toMenu()
+    startTournament(0)
+    const ladder2 = useGame.getState().tournament!.ladder
+    for (const id of ladder2.filter((x) => !ladder1.includes(x))) expect(roster.fighterOf(id).starter).toBe(false)
+    expect(ladder2.filter((x) => !ladder1.includes(x)).length).toBeGreaterThan(0)
+  })
+})
+
+
+describe('going back to the main menu from a fight', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    useSettings.setState({ mode: 'solo' })
+    useGame.getState().start()
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('the fighters leave the arena first; the menu comes when they are out of the frame', () => {
+    useGame.getState().toMenu()
+    expect(useGame.getState().phase).toBe('leave')
+    expect(useGame.getState().paused).toBe(false)
+    handleKey('Enter') // nothing happens meanwhile
+    expect(useGame.getState().phase).toBe('leave')
+    vi.advanceTimersByTime(LEAVE_MS + 10)
+    expect(useGame.getState().phase).toBe('menu')
+  })
+
+  it('from the pause and from the end screen alike; from a screen without fighters the menu is at once', () => {
+    handleKey('Escape')
+    handleKey('ArrowUp')
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('leave')
+    vi.advanceTimersByTime(LEAVE_MS + 10)
+    expect(useGame.getState().phase).toBe('menu')
+    useGame.getState().openSetup('solo')
+    useGame.getState().toMenu()
+    expect(useGame.getState().phase).toBe('menu')
+  })
+})
+
+
+describe('the options: the language', () => {
+  const LANGUAGES = ['en', 'de', 'fr', 'es', 'uk', 'pt', 'pl', 'it']
+  beforeEach(() => {
+    useSettings.getState().setLanguage('en')
+    useGame.getState().toMenu()
+    useMenu.setState({ cursor: 'options', soon: null })
+    handleKey('Enter')
+  })
+  afterAll(() => useSettings.getState().setLanguage('en'))
+
+  it('is a list of the languages and Back; the cursor starts on the current language', () => {
+    expect(useGame.getState().phase).toBe('options')
+    expect(useGame.getState().optionsCursor).toBe(0)
+    handleKey('ArrowDown')
+    expect(useGame.getState().optionsCursor).toBe(1)
+    handleKey('ArrowUp')
+    handleKey('ArrowUp') // wraps around: Back is the last
+    expect(useGame.getState().optionsCursor).toBe(LANGUAGES.length)
+  })
+
+  it('Enter on a language changes the language at once, and it is remembered in the settings', () => {
+    handleKey('ArrowDown') // deutsch
+    handleKey('Enter')
+    expect(useSettings.getState().language).toBe('de')
+    expect(i18next.t('menu.arcade.label')).toBe('Arcade-Modus')
+    for (let i = 0; i < 3; i++) handleKey('ArrowDown') // (deutsch -> fr -> es -> ukrainian)
+    handleKey('Enter')
+    expect(useSettings.getState().language).toBe('uk')
+    expect(i18next.t('menu.arcade.label')).toBe('Аркадний режим')
+    expect(useGame.getState().phase).toBe('options') // it stays on the screen
+  })
+
+  it('the cursor starts on the language that is on; Back (or Esc) leaves', () => {
+    handleKey('ArrowDown')
+    handleKey('Enter') // de
+    handleKey('Escape')
+    expect(useGame.getState().phase).toBe('menu')
+    useMenu.setState({ cursor: 'options', soon: null })
+    handleKey('Enter')
+    expect(useGame.getState().optionsCursor).toBe(1)
+    handleKey('ArrowUp')
+    handleKey('ArrowUp') // Back
+    handleKey('Enter')
+    expect(useGame.getState().phase).toBe('menu')
+  })
+})
+
+describe('what you strike with stays for the next round', () => {
+  beforeEach(() => {
+    useSettings.setState({ mode: 'solo' })
+    useGame.getState().start()
+  })
+  const press = (...codes: string[]) => codes.forEach((c) => handleKey(c))
+
+  it('a kick is still a kick in the next round, but the zones are to be picked again', () => {
+    press('KeyS', 'KeyE', 'KeyQ', 'KeyX') // kick, strike the head, guard the head, fight
+    expect(useGame.getState().phase).toBe('reveal')
+    useGame.getState().next()
+    const c = useGame.getState().choice.player
+    if (useGame.getState().phase === 'choose') {
+      expect(c.weapon).toBe('foot')
+      expect(c.attack).toBeNull()
+      expect(c.block).toBeNull()
+    }
+  })
+
+  it('a punch stays a punch, and a new match starts with a punch again', () => {
+    press('KeyS')
+    useGame.getState().start()
+    expect(useGame.getState().choice.player.weapon).toBe('hand')
+  })
+
+  it('between two people each keeps his own', () => {
+    useSettings.setState({ mode: 'duo' })
+    useGame.getState().start()
+    press('KeyS', 'KeyE', 'KeyQ', 'KeyX') // player 1: kick
+    press('KeyK', 'KeyP', 'KeyI', 'Period') // player 2: kick too
+    useGame.getState().next()
+    if (useGame.getState().phase === 'choose') {
+      expect(useGame.getState().choice.player.weapon).toBe('foot')
+      expect(useGame.getState().choice.enemy.weapon).toBe('foot')
+    }
+  })
+
+  it('the same carries over by nextRound: a super strike only while its meter is full', () => {
+    const m = useGame.getState().match
+    const full = { ...m, meter: { player: 100, enemy: 0 } }
+    const choice = { player: { attack: 'head', attack2: 'body', weapon: 'super', block: 'legs', locked: false }, enemy: { attack: null, attack2: null, weapon: 'foot', block: null, locked: false } } as const
+    expect(nextRound(choice, full).player.weapon).toBe('super')
+    expect(nextRound(choice, m).player.weapon).toBe('hand')
+    expect(nextRound(choice, m).enemy.weapon).toBe('foot')
+    expect(nextRound(choice, m).player.attack).toBeNull()
   })
 })

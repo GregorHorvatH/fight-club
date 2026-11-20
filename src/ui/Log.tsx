@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { turnOf, useGame } from '../state/game'
 import { useNames } from './names'
-import { landed, type RoundResult, type Side, type Strike } from '../sim'
+import type { TFunction } from 'i18next'
+import { Trans, useTranslation } from 'react-i18next'
+import { landed, type RoundResult, type Side, type Strike, type Zone } from '../sim'
 import { timelineOf } from '../timing'
 import { useLanded } from './reveal'
 import { IDLE_MS, idleHint, stepOf } from './steps'
@@ -9,19 +11,20 @@ import { IDLE_MS, idleHint, stepOf } from './steps'
 const ICON = { hand: '✊', foot: '🦶', super: '✦' } as const
 
 /** What one strike did: "✊ head: 12", "🦶 legs: blocked (stumble -7)", "✦ head: 14 + body: blocked". */
-function describe(s: Strike): string {
-  const part = (zone: string, blocked: boolean, damage: number, crit: boolean): string => `${zone}: ${blocked ? 'blocked' : `${damage}${crit ? ' CRIT' : ''}`}`
+function describe(s: Strike, t: TFunction): string {
+  const part = (zone: Zone, blocked: boolean, damage: number, crit: boolean): string => `${t(`zone.${zone}`)}: ${blocked ? t('log.blocked') : `${damage}${crit ? ` ${t('log.crit')}` : ''}`}`
   const first = part(s.zone, s.blocked, s.damage, s.crit)
   if (s.extra) return `${ICON.super} ${first} + ${part(s.extra.zone, s.extra.blocked, s.extra.damage, s.crit)}`
-  return `${ICON[s.weapon]} ${first}${s.blocked && s.recoil ? ` (stumble -${s.recoil})` : ''}`
+  return `${ICON[s.weapon]} ${first}${s.blocked && s.recoil ? ` ${t('log.stumble', { n: s.recoil })}` : ''}`
 }
 
 function Row({ r, side, opacity }: { r: RoundResult; side: Side; opacity?: number }) {
+  const { t } = useTranslation()
   const s = r.strikes[side]!
   return (
     <li style={opacity === undefined ? undefined : { opacity }}>
-      <b>R{r.round}</b>
-      <span className={!landed(s) ? 'miss' : s.crit ? 'crit' : 'hit'}>{describe(s)}</span>
+      <b>{t('log.round', { n: r.round })}</b>
+      <span className={!landed(s) ? 'miss' : s.crit ? 'crit' : 'hit'}>{describe(s, t)}</span>
     </li>
   )
 }
@@ -31,6 +34,7 @@ const FADE = [1, 0.5]
 
 /** The same list, on the field behind the fighters (alone against the enemy): the last two strikes, the older one fading. */
 export function LogOverlay({ side }: { side: Side }) {
+  const { t } = useTranslation()
   const log = useGame((s) => s.match.log)
   const replaying = useGame((s) => s.phase === 'reveal')
   const names = useNames()
@@ -42,7 +46,7 @@ export function LogOverlay({ side }: { side: Side }) {
     return landed >= timelineOf(r).order.indexOf(side) + 1
   })
   return (
-    <section className={`olog ${side}`} aria-label={`${names[side]}'s strikes`}>
+    <section className={`olog ${side}`} aria-label={t('log.aria', { name: names[side] })}>
       <ol>
         {rows
           .slice(-FADE.length)
@@ -74,6 +78,7 @@ function useIdle(key: string): boolean {
  * what they do, every time (the other one is asked to look away), and what is still missing once they have been idle.
  */
 export function Hint() {
+  const { t } = useTranslation()
   const empty = useGame((s) => s.match.log.length === 0)
   const mode = useGame((s) => s.mode)
   const phase = useGame((s) => s.phase)
@@ -86,21 +91,16 @@ export function Hint() {
   const names = useNames()
   const me = names[turn]
   const other = names[turn === 'player' ? 'enemy' : 'player']
-  if (phase === 'menu' || phase === 'about' || phase === 'setup' || phase === 'select') return null // no fight yet: nothing to explain
-  const missing = phase === 'choose' && idle && (step === 'guard' || step === 'strike' || step === 'strike2' || step === 'both') ? idleHint(step, mode === 'duo' ? 'yourself' : me, other) : ''
+  if (phase === 'menu' || phase === 'about' || phase === 'options' || phase === 'setup' || phase === 'select' || phase === 'ladder' || phase === 'leave') return null // no fight yet: nothing to explain
+  const missing = phase === 'choose' && idle && (step === 'guard' || step === 'strike' || step === 'strike2' || step === 'both') ? idleHint(step, mode === 'duo' ? t('idle.yourself') : me, other, t) : ''
   if (mode === 'duo') {
+    const how = missing ? `${missing.charAt(0).toLowerCase()}${missing.slice(1)}` : t('hint.duoHow', { other, action: turn === 'player' ? t('hint.lockIn') : t('hint.fight') })
     return (
       <p className={`hint turn ${turn}`}>
-        <b>{me}</b>, {missing ? `${missing.charAt(0).toLowerCase()}${missing.slice(1)}` : `tap yourself to guard and ${other} to strike, then ${turn === 'player' ? 'lock in' : 'fight'}`}.{' '}
-        <b>{other}</b>, look away!
+        <Trans i18nKey="hint.duo" values={{ me, other, how }} components={{ b: <b /> }} />
       </p>
     )
   }
-  if (empty)
-    return (
-      <p className="hint">
-        Tap {names.player} to guard a zone and {names.enemy} to strike one, with a punch (fast) or a kick (slow, hits harder). If the enemy strikes the zone you guard, you take nothing.
-      </p>
-    )
+  if (empty) return <p className="hint">{t('hint.first', { me: names.player, other: names.enemy })}</p>
   return missing ? <p className="hint nudge">{missing}</p> : null
 }

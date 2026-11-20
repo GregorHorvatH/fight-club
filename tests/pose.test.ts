@@ -3,6 +3,12 @@ import { IMPACT } from '../src/timing'
 import { WEAPONS, ZONES, type Weapon, type Zone } from '../src/sim'
 import {
   ANKLE,
+  ENTER_S,
+  EXIT_S,
+  FIDGET_FIRST,
+  FIDGET_KINDS,
+  FIDGET_SECONDS,
+  fidgetAt,
   HIP_Y,
   SHIN,
   THIGH,
@@ -409,5 +415,189 @@ describe('the winner jumps on both legs', () => {
         expect(p.legN.k, `${name(st)} @${clock}`).toBeCloseTo(p.legF.k, 6)
       }
     }
+  })
+})
+
+describe('walking onto the arena', () => {
+  const walk = (t: number, entrance: 'walk' | 'wait' = 'walk'): Pose => computePose(t, { ...input(), entrance }, t, 0)
+
+  it('starts outside its place, away from the opponent, and arrives at it', () => {
+    expect(walk(0).x).toBeLessThan(-3) // far outside (beyond the frame)
+    let prev = walk(0).x
+    for (let t = 0.1; t < ENTER_S; t += 0.1) {
+      const x = walk(t).x
+      expect(x, `@${t.toFixed(1)}`).toBeGreaterThanOrEqual(prev - 1e-9) // it only comes closer
+      prev = x
+    }
+    expect(walk(ENTER_S - 0.001).x).toBeCloseTo(0, 1)
+    expect(walk(ENTER_S + 1).x).toBeCloseTo(at(ENTER_S + 1).x, 6) // then it is an ordinary idle pose
+  })
+
+  it('strides: the legs swing in turn, the knee of the swinging one is bent', () => {
+    const p = walk(0.2)
+    const q = walk(0.2 + 1 / 2.5 / 2) // half a stride later
+    expect(Math.sign(p.legN.h)).not.toBe(Math.sign(q.legN.h))
+    expect(p.legN.k).toBeLessThan(0)
+    expect(p.legN.h).toBeCloseTo(-p.legF.h, 6)
+  })
+
+  it('moves smoothly: no joint jumps between two frames, including the moment it arrives', () => {
+    let prev = walk(0)
+    for (let t = 1 / 60; t < ENTER_S + 0.5; t += 1 / 60) {
+      const cur = walk(t)
+      for (const k of ['x', 'y', 'lean'] as const) expect(Math.abs(cur[k] - prev[k]), `${k} @${t.toFixed(2)}`).toBeLessThan(0.2)
+      for (const l of ['legN', 'legF'] as const) for (const j of ['h', 'k', 'a'] as const) expect(Math.abs(cur[l][j] - prev[l][j]), `${l}.${j} @${t.toFixed(2)}`).toBeLessThan(0.35)
+      for (const a of ['armN', 'armF'] as const) for (const j of ['s', 'e'] as const) expect(Math.abs(cur[a][j] - prev[a][j]), `${a}.${j} @${t.toFixed(2)}`).toBeLessThan(0.35)
+      prev = cur
+    }
+  })
+
+  it('walking, the arms hang and swing (not in the guard): the fists are up only on the arena', () => {
+    const guard = at(5).armN // the stance
+    const mid = walk(ENTER_S * 0.4)
+    expect(Math.max(mid.armN.e, mid.armF.e)).toBeLessThan(guard.e - 0.5) // the elbows are not folded up to the chin
+    expect(Math.sign(mid.armN.s)).not.toBe(Math.sign(mid.armF.s)) // they swing against each other
+    expect(walk(ENTER_S - 0.001).armN.e).toBeCloseTo(at(ENTER_S).armN.e, 1) // arrived: in the guard
+  })
+
+  it('"wait": it stays outside the frame', () => {
+    for (const t of [0, 1, 5]) expect(walk(t, 'wait').x).toBeLessThan(-3)
+  })
+})
+
+describe('leaving the arena', () => {
+  const leave = (t: number): Pose => computePose(t, { ...input(), entrance: 'leave' }, t, 0)
+
+  it('turns right round first, and keeps facing away', () => {
+    expect(leave(0).turn).toBeCloseTo(0, 6)
+    let prev = 0
+    for (let t = 0; t < EXIT_S + 1; t += 0.05) {
+      const turn = leave(t).turn!
+      expect(turn, `@${t.toFixed(2)}`).toBeGreaterThanOrEqual(prev - 1e-9)
+      prev = turn
+    }
+    expect(leave(1).turn).toBeCloseTo(1, 6)
+    expect(leave(EXIT_S + 5).turn).toBeCloseTo(1, 6)
+    expect(leave(0.1).x).toBeCloseTo(0, 0) // it has not gone anywhere while it is turning
+  })
+
+  it('walks out (away from the opponent, out of the frame) and stays out', () => {
+    expect(leave(0).x).toBeCloseTo(0, 1)
+    let prev = leave(0).x
+    for (let t = 0.1; t < EXIT_S + 1; t += 0.1) {
+      const x = leave(t).x
+      expect(x, `@${t.toFixed(1)}`).toBeLessThanOrEqual(prev + 1e-9) // it only goes further
+      prev = x
+    }
+    expect(leave(EXIT_S).x).toBeLessThan(-3)
+    expect(leave(EXIT_S + 5).x).toBeLessThan(-3)
+  })
+
+  it('moves smoothly: no joint jumps between two frames, from the stance to the stride and out', () => {
+    let prev = leave(0)
+    for (let t = 1 / 60; t < EXIT_S + 0.5; t += 1 / 60) {
+      const cur = leave(t)
+      for (const k of ['x', 'y', 'lean'] as const) expect(Math.abs(cur[k] - prev[k]), `${k} @${t.toFixed(2)}`).toBeLessThan(0.2)
+      for (const l of ['legN', 'legF'] as const) for (const j of ['h', 'k', 'a'] as const) expect(Math.abs(cur[l][j] - prev[l][j]), `${l}.${j} @${t.toFixed(2)}`).toBeLessThan(0.35)
+      for (const a of ['armN', 'armF'] as const) for (const j of ['s', 'e'] as const) expect(Math.abs(cur[a][j] - prev[a][j]), `${a}.${j} @${t.toFixed(2)}`).toBeLessThan(0.35)
+      prev = cur
+    }
+  })
+})
+
+
+describe('idle fidgets', () => {
+  it('none before the wait has gone on for a while; then one now and then, at random moments, never twice at once', () => {
+    for (let t = 0; t < FIDGET_FIRST; t += 0.25) expect(fidgetAt(t, 1), `@${t}`).toBeNull()
+    const seen = new Set<string>()
+    let busy = 0
+    for (let t = 0; t < 600; t += 0.1) {
+      const f = fidgetAt(t, 1)
+      if (f) {
+        seen.add(f.kind)
+        busy++
+        expect(f.u).toBeGreaterThanOrEqual(0)
+        expect(f.u).toBeLessThan(FIDGET_SECONDS[f.kind] + 1e-9)
+      }
+    }
+    expect(seen.size).toBe(FIDGET_KINDS.length) // in ten minutes every kind comes up
+    expect(busy / 6000).toBeGreaterThan(0.2) // (a fidget is going on a third of the time or so)
+    expect(busy / 6000).toBeLessThan(0.6)
+  })
+
+  it('the same time and seed always give the same thing, and the two fighters (seeds) do different things at different times', () => {
+    expect(fidgetAt(17.3, 1)).toEqual(fidgetAt(17.3, 1))
+    let same = 0
+    let both = 0
+    for (let t = 0; t < 300; t += 0.1) {
+      const a = fidgetAt(t, 1)
+      const b = fidgetAt(t, 2.7)
+      if (a && b) {
+        both++
+        if (a.kind === b.kind) same++
+      }
+    }
+    expect(both).toBeLessThan(1500) // they are not in step
+    expect(same).toBeLessThan(both)
+  })
+
+  it('every fidget moves the body, gently: no joint jumps between two frames, whatever the fidget', () => {
+    for (const kind of FIDGET_KINDS) {
+      const at = (t: number): Pose => computePose(0, { ...input(), idle: { seed: 1, force: { kind, u: t } } }, 0, 0)
+      let prev = at(0)
+      let moved = 0
+      for (let u = 1 / 60; u < FIDGET_SECONDS[kind]; u += 1 / 60) {
+        const cur = at(u)
+        for (const k of ['x', 'y', 'lean', 'head', 'twist'] as const) expect(Math.abs(cur[k] - prev[k]), `${kind}.${k} @${u.toFixed(2)}`).toBeLessThan(0.3)
+        for (const a of ['armN', 'armF'] as const) for (const j of ['s', 'e'] as const) expect(Math.abs(cur[a][j] - prev[a][j]), `${kind}.${a}.${j} @${u.toFixed(2)}`).toBeLessThan(0.35)
+        for (const l of ['legN', 'legF'] as const) for (const j of ['h', 'k', 'a'] as const) expect(Math.abs(cur[l][j] - prev[l][j]), `${kind}.${l}.${j} @${u.toFixed(2)}`).toBeLessThan(0.35)
+        moved += Math.abs(cur.armN.s - prev.armN.s) + Math.abs(cur.head - prev.head) + Math.abs((cur.headYaw ?? 0) - (prev.headYaw ?? 0)) + Math.abs(cur.legN.h - prev.legN.h)
+        prev = cur
+      }
+      expect(moved, kind).toBeGreaterThan(0.1)
+      // it begins and ends in the plain stance
+      const plain = computePose(0, input(), 0, 0)
+      expect(Math.abs(at(0).armN.e - plain.armN.e), `${kind} start`).toBeLessThan(0.01)
+      expect(Math.abs(at(FIDGET_SECONDS[kind]).armN.e - plain.armN.e), `${kind} end`).toBeLessThan(0.01)
+    }
+  })
+
+  it('the taunting dance turns its back to the opponent, and turns round again', () => {
+    const at = (u: number): Pose => computePose(0, { ...input(), idle: { seed: 1, force: { kind: 'taunt', u } } }, 0, 0)
+    expect(at(0).turn).toBeCloseTo(0, 6)
+    expect(at(2.4).turn).toBeCloseTo(1, 6) // the back to the opponent, wiggling
+    expect(at(FIDGET_SECONDS.taunt).turn).toBeCloseTo(0, 6)
+    // it wiggles its hips (the pelvis sways quickly) bent over
+    const swing = Array.from({ length: 60 }, (_, i) => at(2 + i / 30).pelvis)
+    expect(Math.max(...swing) - Math.min(...swing)).toBeGreaterThan(0.6)
+    expect(at(2.4).lean).toBeGreaterThan(0.2)
+    // the turn is smooth
+    let prev = at(0).turn!
+    for (let u = 1 / 60; u < FIDGET_SECONDS.taunt; u += 1 / 60) {
+      const turn = at(u).turn!
+      expect(Math.abs(turn - prev), `@${u.toFixed(2)}`).toBeLessThan(0.1)
+      prev = turn
+    }
+  })
+
+  it('a fighter looking at the player turns its head; the kick at the ball swings the near leg', () => {
+    const look = computePose(0, { ...input(), idle: { seed: 1, force: { kind: 'lookAtPlayer', u: 1.3 } } }, 0, 0)
+    expect(look.headYaw).toBeGreaterThan(0.5)
+    const plain = computePose(0, input(), 0, 0)
+    const kick = computePose(0, { ...input(), idle: { seed: 1, force: { kind: 'kickBall', u: 1.22 } } }, 0, 0)
+    expect(kick.legN.h).toBeGreaterThan(plain.legN.h + 0.3)
+  })
+
+  it('only when it stands doing nothing: not while it strikes, is struck, has won or is down', () => {
+    const f = { idle: { seed: 1, force: { kind: 'scratch', u: 1.2 } as const } }
+    const base = computePose(0, input(), 0, 0)
+    expect(computePose(0, { ...input(), ...f }, 0, 0).armN.s).not.toBeCloseTo(base.armN.s, 1)
+    expect(computePose(0.1, { ...input({ strike: { zone: 'head', weapon: 'hand' } }), ...f }, 0, 0).armN.s).toBeCloseTo(computePose(0.1, input({ strike: { zone: 'head', weapon: 'hand' } }), 0, 0).armN.s, 6)
+    expect(computePose(0, { ...input({ won: true }), ...f }, 0, 0).headYaw).toBe(0)
+    expect(computePose(0, { ...input({ ko: true }), ...f }, 0, 0).armN.s).toBeCloseTo(computePose(0, input({ ko: true }), 0, 0).armN.s, 6)
+  })
+
+  it('the pose in the wait carries no fidget when idle is not asked for (the replay of a round)', () => {
+    for (let t = 0; t < 30; t += 0.7) expect(computePose(t, input(), t, 0).headYaw).toBe(0)
   })
 })

@@ -34,6 +34,14 @@ Whoever runs out of health first loses.
   (James's side), the one that starts the fight at the right edge (Amy's). The hint is under the health bars; each fighter's last two
   strikes are listed under each health bar, below the combo, the older ones fading away. The bars, the combo and the log follow the replay:
   they change at the moment each blow lands.
+- **The fighters walk onto the arena** from both sides at the start of every match (2.4 s: from beyond the frame, with a stride and the arms
+  swinging as in an ordinary walk; the fists go up only when they arrive; until then the arena is empty behind the menus and the
+  tournament ladder). Going back to the main menu, they lower their fists, turn round and walk out, face first, before the menu comes.
+- **Idle fidgets.** While the player is choosing, the fighters do little things on their own, at random moments (the first one 3.5 s into
+  the wait, then one every 4.5-8 s, different for each fighter): scratch the head, wipe the nose, look at the player, look around, roll the
+  neck, shake the arms loose, crack the knuckles, bounce and throw a couple of jabs at nothing, shift the weight, look down and kick an
+  imaginary ball, and a taunting dance (bouncing, swaying hips, pumping elbows; then it turns its back to the opponent, bends over and wiggles its
+  behind, and turns round again) (`FIDGET_KINDS` in `src/ui/pose.ts`). Turning the head is 3D only. Not while a blow is on, or a fighter has won or is down.
 - **A short intro** (2.3 s) opens every match: the names slide in, "VS" slams down between the fighters and is gone, then "FIGHT!"
   and a bell. Nothing stays on the arena afterwards. It does not block the controls.
 - **Two players on one screen, one after the other.** James (the left fighter) chooses first: tap himself to guard, Amy to strike, a punch or a
@@ -118,14 +126,32 @@ pnpm check      # typecheck + lint + tests
 pnpm build      # static site in dist/
 ```
 
+## Languages
+
+The interface is translated into **English, German, French, Spanish, Ukrainian, Portuguese (Brazilian), Polish and Italian** (Options in the main menu; the language of the browser
+is used the first time when the game has it, and the choice is remembered). It uses [i18next](https://www.i18next.com) with
+react-i18next: the texts are in `src/i18n/<lang>.ts`, `en.ts` is the source of the keys (interpolation `{{name}}`, plurals with `_one` /
+`_few` / `_many` / `_other` keys, `<b>` for bold). `tests/i18n.test.ts` checks that every language has every key, with the same
+parameters and tags, and the plural forms the language needs. Names of fighters, arenas and super strikes are proper names and stay as
+they are. To add a language: a file like `en.ts`, a line in `LANGUAGES` in `src/i18n/index.ts`, and its name in the test.
+
 ## Game modes
 
-The main menu: **Tournament** (not made yet: a row of opponents, each beaten one becomes a fighter you can choose), **Arcade Mode** (one
-player against the enemy), **VS Mode** (two players, one screen) **Options** (not made yet) and **About** (the rules). Arcade and VS lead to a setup screen
-(difficulty, arena, view), then to **Select fighter**: a grid of faces (5 across in a wide window, 3 across in a tall one),
-where a fighter that is not unlocked is a "?" (everybody is unlocked for now: the tournament that unlocks them is not made, see
-`ALL_UNLOCKED` in `src/state/roster.ts`). Alone you choose your
-fighter and the enemy is another one; in VS Mode the first player chooses, then the second (not the same one). Then the fight.
+The main menu: **Tournament**, **Arcade Mode** (one player against the enemy), **VS Mode** (two players, one screen), **Options** (not
+made yet) and **About** (the rules). Arcade and VS lead to a setup screen (difficulty, arena, view), then to **Select fighter**: a grid
+of faces (5 across in a wide window, 3 across in a tall one), where a fighter that is not unlocked is a "?". Alone you choose your
+fighter and the enemy is another unlocked one; in VS Mode the first player chooses, then the second (not the same one). Then the fight.
+
+**Tournament** (setup without a difficulty, then Select fighter): 7 opponents, one after another, from the weakest of the roster up
+(`src/state/tournament.ts`); the enemy gets cleverer along the way (easy, then normal, then hard) and the header says "stage 3/7".
+At the start of a tournament the ladder, enlarged, scrolls from the hardest opponent at the bottom up to the easiest, then zooms out
+to its normal size (about 5 s; 2-3 fighters are in view while it scrolls), and the first opponent is lit for about 2.4 s. Before each fight the **ladder** is shown: the opponents in the order of the fights, the beaten ones ticked, the next one lit; after a win
+the highlight moves from the one just beaten to the next, and only then does the fight begin (`Enter` skips the wait).
+Every fighter you **beat is unlocked for good** (remembered in the browser; `src/state/unlocks.ts`) and can then be chosen in every mode.
+The ladder is made of the fighters that are not unlocked yet; when few are left, the strongest of the others fill it. After a win "Next
+fight" goes on to the next opponent; after a defeat "Try again" repeats the same stage; after the last win a new tournament starts.
+A tournament does not count toward the record against the enemy. Only James and Amy are there from the start; open the page with
+`?unlockall` to have everybody (nothing is saved then).
 
 ## Controls
 
@@ -148,7 +174,7 @@ keys of a player are laid out like the old picture, left to right and top to bot
 | `B` | the next arena (setup screen) |
 | arrows / `W` `A` `S` `D` | move over the tiles of the Select fighter screen; `Enter` chooses |
 | `Esc` | back (from Select fighter one step, from the about, setup and end screens to the menu) |
-| `Esc` in a fight | pause (also the ⏸ button in the header): `↑` `↓` and `Enter` choose Continue, Fight again (the round starts over: a round that was fought is taken back) or Back to main menu; `Esc` continues |
+| `Esc` in a fight | pause (also the ⏸ button in the header): `↑` `↓` and `Enter` choose Continue, Fight again (the round starts over: a round that was fought is taken back), Controls (the layout of the keys) or Back to main menu; `Esc` continues |
 | `M` | mute |
 
 Between two people the second player's keys are `I` `J` `,` (guard head / body / legs), `O` `K` `.` (punch, kick, fight) and `P` `L` `/` (strike

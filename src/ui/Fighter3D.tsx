@@ -98,7 +98,7 @@ export function Fighter3D({ side, view, settled }: Props) {
   return (
     <group ref={reg('root')} position={[-dir * BASE_X, 0, 0]}>
       <ZoneHits view={view} />
-      <group rotation-y={side === 'enemy' ? Math.PI : 0}>
+      <group ref={reg('facing')} rotation-y={side === 'enemy' ? Math.PI : 0}>
         <group ref={reg('tilt')}>
           <group ref={reg('pelvis')} position={[0, HIP_Y, 0]}>
             <mesh material={mats.legs} scale={[0.8, 0.9, 1.15]} castShadow>

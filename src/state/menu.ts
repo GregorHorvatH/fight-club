@@ -6,13 +6,13 @@ import { useGame } from './game'
 export const MENU = ['tournament', 'arcade', 'versus', 'options', 'about'] as const
 export type MenuItem = (typeof MENU)[number]
 
-/** What an item is called on screen, and what it is. Tournament and options are not made yet: they only have a place in the menu. */
-export const MENU_INFO: Record<MenuItem, { label: string; blurb: string; soon: boolean }> = {
-  tournament: { label: 'Tournament', blurb: 'Beat a row of opponents, one after another. Every fighter you beat can be chosen in other fights.', soon: true },
-  arcade: { label: 'Arcade Mode', blurb: 'One player against the enemy.', soon: false },
-  versus: { label: 'VS Mode', blurb: 'Two players, one screen.', soon: false },
-  options: { label: 'Options', blurb: 'Language and the rest of the settings.', soon: true },
-  about: { label: 'About', blurb: 'How the game is played.', soon: false },
+/** Which items are not made yet (they say so when chosen): none now. The texts are in the translations (`menu.<item>.label` and `.blurb`). */
+export const MENU_INFO: Record<MenuItem, { soon: boolean }> = {
+  tournament: { soon: false },
+  arcade: { soon: false },
+  versus: { soon: false },
+  options: { soon: false },
+  about: { soon: false },
 }
 
 interface Menu {
@@ -44,9 +44,11 @@ export const useMenu = create<Menu>((set, get) => ({
   choose: (item = get().cursor) => {
     if (useGame.getState().phase !== 'menu') return
     play('select')
-    if (item === 'arcade') useGame.getState().openSetup('solo')
+    if (item === 'tournament') useGame.getState().openTournament()
+    else if (item === 'arcade') useGame.getState().openSetup('solo')
     else if (item === 'versus') useGame.getState().openSetup('duo')
     else if (item === 'about') useGame.getState().openAbout()
+    else if (item === 'options') useGame.getState().openOptions()
     else set({ cursor: item, soon: item })
   },
 }))

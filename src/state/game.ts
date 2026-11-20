@@ -3,14 +3,17 @@ import { play, type Sound } from '../audio/synth'
 import { SUPER_GAP, timelineOf } from '../timing'
 import { createMatch, playRound, resolveRound, superReady, type Match, type Move, type Rng, type RoundResult, type Side, type Weapon, type Zone } from '../sim'
 import { useBest } from './best'
-import { isUnlocked, rivalOf, slotFighter, SLOTS, FIGHTERS, type FighterId } from './roster'
+import { difficultyAt, ladderFor, type Tournament } from './tournament'
+import { useUnlocks } from './unlocks'
+import { fighterOf, isUnlocked, rivalOf, slotFighter, SLOTS, FIGHTERS, type FighterId } from './roster'
+import { LANGUAGES } from '../i18n'
 import { useSettings, type Mode } from './settings'
 
 /** menu -> (about | setup -> select -> choose -> reveal -> (choose -> reveal)* -> over) and back to the menu */
-export type Phase = 'menu' | 'about' | 'setup' | 'select' | 'choose' | 'reveal' | 'over'
+export type Phase = 'menu' | 'about' | 'options' | 'setup' | 'select' | 'ladder' | 'leave' | 'choose' | 'reveal' | 'over'
 
 /** The items of the pause window, top to bottom: go on, the round again (from its start), or leave the fight for the main menu. */
-export const PAUSE_ITEMS = ['continue', 'again', 'menu'] as const
+export const PAUSE_ITEMS = ['continue', 'again', 'controls', 'menu'] as const
 export type PauseItem = (typeof PAUSE_ITEMS)[number]
 
 /** The items under the settings of the setup screen, top to bottom. */
@@ -34,6 +37,14 @@ export interface Choice {
 
 const blank = (): Choice => ({ attack: null, attack2: null, weapon: 'hand', block: null, locked: false })
 const fresh = (): Record<Side, Choice> => ({ player: blank(), enemy: blank() })
+/**
+ * The choices for the next round of a match: nothing is picked, but what each fighter strikes with is kept (a punch, a kick), so that
+ * it does not have to be chosen again every round. A super strike is kept only while its meter is still full.
+ */
+export function nextRound(prev: Record<Side, Choice>, match: Match): Record<Side, Choice> {
+  const keep = (side: Side): Choice => ({ ...blank(), weapon: prev[side].weapon === 'super' && !superReady(match, side) ? 'hand' : prev[side].weapon })
+  return { player: keep('player'), enemy: keep('enemy') }
+}
 export const complete = (c: Choice): boolean => c.attack !== null && c.block !== null && (c.weapon !== 'super' || c.attack2 !== null)
 
 /**
@@ -78,6 +89,9 @@ interface Game {
   resume: () => void
   /** the item of the pause window the cursor is on */
   pauseItem: PauseItem
+  /** the pause window shows the layout of the keys instead of its list */
+  pauseControls: boolean
+  closeControls: () => void
   /** move the cursor of the pause window by `step` items (wraps around) */
   movePause: (step: number) => void
   pointPause: (item: PauseItem) => void
@@ -87,6 +101,16 @@ interface Game {
   toMenu: () => void
   /** from the menu to the setup of a game for one player (arcade) or two (versus) */
   openSetup: (mode: Mode) => void
+  /** the setup is that of a tournament (no difficulty to choose: the enemies get cleverer by themselves) */
+  inTournament: boolean
+  /** a tournament in progress: the ladder of opponents, and the stage being fought */
+  tournament: Tournament | null
+  /** from the menu to the setup of a tournament */
+  openTournament: () => void
+  /** the ladder screen: the stage the highlight is moving from (null at the start of a tournament, when it just shows the first) */
+  ladderFrom: number | null
+  /** leave the ladder screen: the fight begins */
+  startFromLadder: () => void
   /** the item of the setup screen the cursor is on */
   setupItem: SetupItem
   moveSetup: (step: number) => void
@@ -116,6 +140,14 @@ interface Game {
   pointEnd: (item: EndItem) => void
   /** choose the item under the cursor (or `item`): fight again, or back to the main menu */
   chooseEnd: (item?: EndItem) => void
+  /** from the menu to the options (the language) */
+  openOptions: () => void
+  /** the item of the options the cursor is on: a language, or (the last) Back */
+  optionsCursor: number
+  moveOptions: (step: number) => void
+  pointOptions: (i: number) => void
+  /** choose the item under the cursor (or `i`): a language takes effect at once; Back leaves */
+  chooseOptions: (i?: number) => void
   /** from the menu to the description of the game */
   openAbout: () => void
   start: () => void
@@ -136,11 +168,17 @@ interface Game {
   next: () => void
 }
 
+/** How long the fighters take to leave the arena when the player goes back to the main menu (see EXIT_S in pose.ts). */
+export const LEAVE_MS = 2300
+
 /** The sounds of a replay that are still to come: they stop when the replay is skipped. */
 let pending: ReturnType<typeof setTimeout>[] = []
+let leaving: ReturnType<typeof setTimeout> | null = null
 const stopSounds = (): void => {
   pending.forEach(clearTimeout)
   pending = []
+  if (leaving) clearTimeout(leaving) // anything new that begins cancels the leaving of the fighters
+  leaving = null
 }
 
 /** Each strike of a round sounds at its own moment: the swing, the blow (or the guard), the stumble. The times are those of the replay. */
@@ -206,7 +244,7 @@ export const useGame = create<Game>((set, get) => {
       const { phase, paused } = get()
       if (paused || (phase !== 'choose' && phase !== 'reveal')) return
       stopSounds() // the sounds of the replay that are still to come
-      set({ paused: true, pauseItem: 'continue', hover: null })
+      set({ paused: true, pauseItem: 'continue', pauseControls: false, hover: null })
     },
 
     resume: () => {
@@ -219,6 +257,8 @@ export const useGame = create<Game>((set, get) => {
     },
 
     pauseItem: 'continue',
+    pauseControls: false,
+    closeControls: () => set({ pauseControls: false }),
 
     movePause: (step) => {
       if (!get().paused) return
@@ -236,6 +276,7 @@ export const useGame = create<Game>((set, get) => {
       play('select')
       if (item === 'continue') get().resume()
       else if (item === 'again') get().restartRound()
+      else if (item === 'controls') set({ pauseControls: true })
       else get().toMenu()
     },
 
@@ -251,12 +292,32 @@ export const useGame = create<Game>((set, get) => {
 
     toMenu: () => {
       stopSounds()
-      set({ phase: 'menu', paused: false, last: null, choice: fresh() })
+      const { phase } = get()
+      const toMenu = () => set({ phase: 'menu', paused: false, inTournament: false, tournament: null, last: null, choice: fresh() })
+      // the fighters who are on the arena leave it (retreating, out of the frame) before the menu is shown
+      if (phase === 'choose' || phase === 'reveal' || phase === 'over') {
+        set({ phase: 'leave', paused: false, hover: null })
+        leaving = setTimeout(() => get().phase === 'leave' && toMenu(), LEAVE_MS)
+      } else toMenu()
+    },
+
+    inTournament: false,
+    tournament: null,
+    ladderFrom: null,
+    startFromLadder: () => {
+      if (get().phase === 'ladder') get().start()
     },
 
     openSetup: (mode) => {
+      stopSounds()
       useSettings.getState().setMode(mode)
-      set({ phase: 'setup', mode, setupItem: 'select', paused: false, last: null, choice: fresh() })
+      set({ phase: 'setup', mode, inTournament: false, tournament: null, setupItem: 'select', paused: false, last: null, choice: fresh() })
+    },
+
+    openTournament: () => {
+      stopSounds()
+      useSettings.getState().setMode('solo')
+      set({ phase: 'setup', mode: 'solo', inTournament: true, tournament: null, setupItem: 'select', paused: false, last: null, choice: fresh() })
     },
 
     fighters: { player: FIGHTERS[0].id, enemy: FIGHTERS[1].id },
@@ -301,7 +362,11 @@ export const useGame = create<Game>((set, get) => {
       // a "?" cannot be chosen, nor a fighter that is locked, nor (the second player) the one the first has chosen
       if (!f || !isUnlocked(f) || (selectFor === 'enemy' && f.id === fighters.player)) return
       play('select')
-      if (mode === 'solo') {
+      if (mode === 'solo' && get().inTournament) {
+        // a tournament: the opponents are those of the ladder, one after another, the weakest first
+        const ladder = ladderFor(f.id, (id) => !isUnlocked(fighterOf(id)))
+        set({ tournament: { hero: f.id, ladder, stage: 0, unlocked: null }, fighters: { player: f.id, enemy: ladder[0]! }, phase: 'ladder', ladderFrom: null })
+      } else if (mode === 'solo') {
         set({ fighters: { player: f.id, enemy: rivalOf(f.id, random) } })
         get().start()
       } else if (selectFor === 'player') {
@@ -354,8 +419,37 @@ export const useGame = create<Game>((set, get) => {
 
     chooseEnd: (item = get().endItem) => {
       if (get().phase !== 'over') return
-      if (item === 'again') get().start()
-      else get().toMenu()
+      if (item === 'back') return get().toMenu()
+      const { tournament: t, match } = get()
+      if (!t) return get().start()
+      // in a tournament "again" goes on: the next opponent after a win, the same one after a defeat, a new ladder after the last win
+      if (match.status === 'lost') return get().start()
+      // the ladder is shown first: the highlight moves to the next opponent, and then the fight begins
+      if (t.stage + 1 < t.ladder.length) {
+        set({ tournament: { ...t, stage: t.stage + 1, unlocked: null }, fighters: { ...get().fighters, enemy: t.ladder[t.stage + 1]! }, phase: 'ladder', ladderFrom: t.stage })
+      } else {
+        const ladder = ladderFor(t.hero, (id) => !isUnlocked(fighterOf(id)))
+        set({ tournament: { hero: t.hero, ladder, stage: 0, unlocked: null }, fighters: { player: t.hero, enemy: ladder[0]! }, phase: 'ladder', ladderFrom: null })
+      }
+    },
+
+    optionsCursor: 0,
+    openOptions: () => set({ phase: 'options', optionsCursor: Math.max(0, LANGUAGES.findIndex((l) => l.id === useSettings.getState().language)) }),
+    moveOptions: (step) => {
+      if (get().phase !== 'options') return
+      const n = LANGUAGES.length + 1 // the languages, then Back
+      play('select')
+      set({ optionsCursor: (get().optionsCursor + step + n) % n })
+    },
+    pointOptions: (i) => {
+      if (get().phase === 'options' && get().optionsCursor !== i) set({ optionsCursor: i })
+    },
+    chooseOptions: (i = get().optionsCursor) => {
+      if (get().phase !== 'options') return
+      if (i >= LANGUAGES.length) return get().toMenu()
+      play('select')
+      useSettings.getState().setLanguage(LANGUAGES[i]!.id)
+      set({ optionsCursor: i })
     },
 
     openAbout: () => set({ phase: 'about' }),
@@ -363,7 +457,8 @@ export const useGame = create<Game>((set, get) => {
     start: () => {
       stopSounds()
       const { mode, difficulty } = useSettings.getState()
-      set({ phase: 'choose', mode, paused: false, match: createMatch(difficulty), choice: fresh(), last: null, matchId: get().matchId + 1 })
+      const t = get().tournament
+      set({ phase: 'choose', mode, paused: false, match: createMatch(t ? difficultyAt(t.stage, t.ladder.length) : difficulty), choice: fresh(), last: null, matchId: get().matchId + 1 })
     },
 
     pickAttack: (side, zone, weapon) => {
@@ -421,10 +516,16 @@ export const useGame = create<Game>((set, get) => {
       if (phase !== 'reveal' || paused) return
       stopSounds()
       if (match.status === 'fighting') {
-        set({ phase: 'choose', choice: fresh(), last: null })
+        set({ phase: 'choose', choice: nextRound(get().choice, match), last: null })
         return
       }
-      if (mode === 'solo') useBest.getState().record(match) // a duel between two people is not your record
+      const t = get().tournament
+      if (t) {
+        // a win in the tournament unlocks the fighter that was beaten (for good)
+        const won = match.status === 'won'
+        const beaten = t.ladder[t.stage]!
+        set({ tournament: { ...t, unlocked: won && useUnlocks.getState().unlock(beaten) ? beaten : null } })
+      } else if (mode === 'solo') useBest.getState().record(match) // a duel between two people is not your record
       play(mode === 'duo' || match.status === 'won' ? 'win' : 'lose')
       set({ phase: 'over', endItem: 'again' })
     },

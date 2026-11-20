@@ -1,4 +1,5 @@
 import { lazy, Suspense, type CSSProperties } from 'react'
+import { useTranslation } from 'react-i18next'
 import { arenaUrl, pickArena, useArenas } from '../state/arenas'
 import { useGame } from '../state/game'
 import { useSettings } from '../state/settings'
@@ -14,6 +15,7 @@ import { usePortrait } from './usePortrait'
 const Arena3D = lazy(() => import('./Arena3D'))
 
 export function Arena() {
+  const { t } = useTranslation()
   const view = useSettings((s) => s.view)
   const arena = pickArena(useArenas((s) => s.list), useSettings((s) => s.arena))
   const phase = useGame((s) => s.phase)
@@ -29,14 +31,14 @@ export function Arena() {
     <div
       ref={ref}
       className={`arena ${view === '3d' ? 'three' : 'flat'}${arena ? ' has-bg' : ''}`}
-      aria-label="Arena"
+      aria-label={t('arena.aria')}
       // the picture, under a dark veil so that the fighters, the numbers and the glow stay readable on a bright photo
       // `--stand`: how far down the frame the fighters are moved (the labels over their heads follow)
       style={{ ...(floor !== null ? { '--floor': `${floor}px` } : {}), ...(arena ? { '--stand': arena.stand, backgroundImage: `linear-gradient(rgba(10, 9, 16, 0.18), rgba(10, 9, 16, 0.42)), url(${arenaUrl(arena.file)})` } : {}) } as CSSProperties}
     >
       {view === '3d' ? (
         <>
-          <Suspense fallback={<div className="loading">Loading 3D…</div>}>
+          <Suspense fallback={<div className="loading">{t('common.loading3d')}</div>}>
             <Arena3D player={player} enemy={enemy} sceneKey={key} backdrop={arena !== null} stand={arena?.stand ?? 0} floor={floor} />
           </Suspense>
           <div className="slot player"><Floats labels={player.labels} /></div>

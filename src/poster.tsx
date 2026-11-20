@@ -7,6 +7,7 @@
  *   lag=0.28       seconds between the contact and the moment shown (the flash of the blow fades)
  *   yaw=30         how far the heads are turned toward the camera, in degrees
  *   left=pete      who stands on the left, and  right=brute  on the right (ids from state/roster.ts; default: james and amy)
+ *   fidget=scratch:1.2  the left fighter is idling and doing this fidget (kind:seconds-into-it; see FIDGET_KINDS in ui/pose.ts)
  *   won=L          the left fighter is the winner (it jumps for joy), or won=R the right one; with clock=0.2 at the moment 0.2 s into the cycle
  *   clock=0.2      the free-running clock (seconds) frozen at this value
  *   front=1        the whole body faces the camera, not only the head (for the avatars; use with a camera right in front of the fighter)
@@ -23,6 +24,7 @@ import { FIGHTERS, fighterOf } from './state/roster'
 import { IMPACT } from './timing'
 import Arena3D from './ui/Arena3D'
 import type { FighterView, Stage, Thrown } from './ui/arenaView'
+import { FIDGET_KINDS, type Fidget, type FidgetKind } from './ui/pose'
 import './index.css'
 
 const q = new URLSearchParams(location.search)
@@ -46,8 +48,11 @@ const lag = Number(q.get('lag') ?? 0.28)
 const shownAt = Number(q.get('t') ?? 285) / 1000
 const times = { strikeAt: 0, hitAt: IMPACT, endAt: IMPACT }
 const hitTimes = { strikeAt: 0, hitAt: shownAt - lag, endAt: shownAt - lag }
+const [fk, fu] = (q.get('fidget') ?? '').split(':')
+const fidgetForced: Fidget | undefined = FIDGET_KINDS.includes(fk as FidgetKind) ? { kind: fk as FidgetKind, u: Number(fu ?? 1) } : undefined
 const striker = (mine: typeof left): FighterView => ({
-  shield: null, incoming: null, aim: null, aim2: null, strike: q.get('won') === 'L' ? null : mine, foe: null, times, stumble: false, ko: false, won: q.get('won') === 'L', labels: [],
+  idleSeed: fidgetForced ? 1 : undefined, idleForce: fidgetForced,
+  shield: null, incoming: null, aim: null, aim2: null, strike: q.get('won') === 'L' || fidgetForced ? null : mine, foe: null, times, stumble: false, ko: false, won: q.get('won') === 'L', labels: [],
 })
 const struck = (theirs: typeof left): FighterView => ({
   shield: null, incoming: { zone: theirs.zone, blocked: false, weapon: theirs.weapon, also: null, delay: 0 }, aim: null, aim2: null, strike: null, foe: theirs, times: q.get('won') === 'R' ? { ...hitTimes, endAt: 0 } : hitTimes, stumble: false, ko: false, won: q.get('won') === 'R', labels: [],

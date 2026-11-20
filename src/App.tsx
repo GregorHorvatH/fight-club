@@ -6,7 +6,7 @@ import { useGame } from './state/game'
 import { Arena } from './ui/Arena'
 import { Dock } from './ui/Controls'
 import { Hud } from './ui/Hud'
-import { About, End, Menu, Pause, Select, Setup } from './ui/Screens'
+import { About, End, Options, Ladder, Menu, Pause, Select, Setup } from './ui/Screens'
 
 /** A round is shown for as long as its strikes take (two beats, or one when the first knocked the other out); Enter skips it. A knockout lingers a little longer. */
 const KO_EXTRA_MS = 400
@@ -35,8 +35,10 @@ export default function App() {
       <Dock />
       {phase === 'menu' && <Menu />}
       {phase === 'about' && <About />}
+      {phase === 'options' && <Options />}
       {phase === 'setup' && <Setup />}
       {phase === 'select' && <Select />}
+      {phase === 'ladder' && <Ladder />}
       {phase === 'over' && <End />}
       {paused && <Pause />}
     </main>

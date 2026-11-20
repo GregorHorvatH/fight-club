@@ -270,7 +270,7 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
     orient.Hips = { lat: hipLat }
     for (const n of ['Spine', 'Spine1', 'Spine2']) orient[n] = { lat: chestLat }
     // staged: the face is turned toward the camera (the camera is on the figure's +z side for the left fighter, -z for the right one)
-    const toward = (amount: number): Vector3 => chestLat.clone().applyAxisAngle(headDir, -((side === 'enemy' ? stage?.headYawRight : undefined) ?? stage?.headYaw ?? 0) * amount * near)
+    const toward = (amount: number): Vector3 => chestLat.clone().applyAxisAngle(headDir, -((stage ? ((side === 'enemy' ? stage.headYawRight : undefined) ?? stage.headYaw ?? 0) : 0) + (P.headYaw ?? 0)) * amount * near)
     orient.Neck = { dir: headDir, lat: toward(0.4) } // the neck and the head stand upright, whatever way the rest pose bows them
     orient.Head = {
       dir: headDir, lat: toward(1), rest: model.head.up,

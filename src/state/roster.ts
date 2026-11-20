@@ -1,4 +1,5 @@
 import type { Rng } from '../sim'
+import { UNLOCK_ALL_BY_URL, useUnlocks } from './unlocks'
 import type { SuperStyle } from '../ui/pose'
 
 /**
@@ -22,9 +23,6 @@ export interface Fighter {
   /** how it throws its super strike: two blows, each a punch or a kick, perhaps in a leap or with a turn between them */
   super?: SuperStyle
 }
-
-/** Nothing can be unlocked yet (the tournament that unlocks fighters is not made), so everybody can be chosen. Turn off when it is made. */
-const ALL_UNLOCKED = true
 
 const fighter = <I extends string>(id: I, name: string, height = 1, starter = false, extra: { hide?: readonly string[]; shoulders?: number; super?: SuperStyle } = {}) => ({
   id, name, model: `models/${id}.glb`, portrait: `models/${id}.webp`, height, starter, hide: extra.hide ?? [], shoulders: extra.shoulders ?? 0,
@@ -66,8 +64,8 @@ export const fighterOf = (id: FighterId): Roster => FIGHTERS.find((f) => f.id ==
 /** The fighter on a tile, or null for a "?". */
 export const slotFighter = (slot: number): Roster | null => FIGHTERS[slot] ?? null
 
-/** Can this one be chosen? (Alone against the enemy: any unlocked fighter; nothing is unlocked by playing yet.) */
-export const isUnlocked = (f: Fighter): boolean => ALL_UNLOCKED || f.starter
+/** Can this one be chosen? The starters, and the ones beaten in the tournament (or everybody with `?unlockall`). */
+export const isUnlocked = (f: Fighter): boolean => f.starter || UNLOCK_ALL_BY_URL || useUnlocks.getState().unlocked.includes(f.id)
 
 /** Who the enemy is when you have chosen `id`: one of the other unlocked fighters. */
 export function rivalOf(id: FighterId, rng: Rng): FighterId {

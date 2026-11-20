@@ -86,6 +86,7 @@ export function handleKey(code: string): boolean {
   const go = code === 'Enter' || code === 'Space'
   if (g.paused) {
     // the pause window is a list like the main menu: up / down move the cursor, Enter / Space choose, Esc goes on; nothing else does anything
+    if (g.pauseControls) return code === 'Escape' || go ? (g.closeControls(), true) : false // the layout of the keys: back to the list
     if (code === 'Escape') return g.resume(), true
     if (code === 'ArrowUp' || code === 'KeyW') return g.movePause(-1), true
     if (code === 'ArrowDown' || code === 'KeyS') return g.movePause(1), true
@@ -102,6 +103,20 @@ export function handleKey(code: string): boolean {
       m.choose()
       return true
     }
+    case 'options':
+      if (code === 'Escape') return g.toMenu(), true
+      if (code === 'ArrowUp' || code === 'KeyW') return g.moveOptions(-1), true
+      if (code === 'ArrowDown' || code === 'KeyS') return g.moveOptions(1), true
+      if (!go) return false
+      g.chooseOptions()
+      return true
+    case 'leave':
+      return false // the fighters are leaving: nothing to do but wait for the menu
+    case 'ladder':
+      if (code === 'Escape') return g.toMenu(), true
+      if (!go) return false
+      g.startFromLadder() // skips the wait
+      return true
     case 'select':
       if (code === 'Escape') return g.backSelect(), true
       if (code === 'ArrowLeft' || code === 'KeyA') return g.moveSelect(-1, 0), true

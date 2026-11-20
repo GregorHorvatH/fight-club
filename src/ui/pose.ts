@@ -157,6 +157,10 @@ export interface Pose {
   fall: number
   /** 0..1: the struck zone flashes */
   flash: number
+  /** the head turned about its vertical axis, toward the camera (a fighter looking at the player); not given = 0 */
+  headYaw?: number
+  /** 0 = facing the opponent, 1 = turned right round, facing away (a fighter leaving the arena); not given = 0 */
+  turn?: number
 }
 export interface PoseInput {
   /** the strike this fighter throws, and when it begins (seconds into the replay) */
@@ -171,6 +175,17 @@ export interface PoseInput {
   won: boolean
   /** when the match was decided (a knockout), for falling down and for the winner's joy */
   endAt: number
+  /**
+   * Idle fidgets: while the fighter waits (the player is choosing) it now and then does something on its own (scratches its head, looks
+   * at the player, kicks an imaginary ball...). `seed` makes the two fighters do different things at different times.
+   */
+  idle?: { seed: number; /** a given fidget instead of the random ones (the poster scene, tests) */ force?: Fidget }
+  /**
+   * Walking onto the arena at the start of a match: 'walk' = the fighter comes in from beyond its side of the frame (ENTER_S seconds
+   * from t = 0, then it stands in its guard); 'wait' = it is still off the frame (while the ladder of a tournament is shown);
+   * 'leave' = it turns round and walks out of the frame (EXIT_S seconds from t = 0), when the player goes back to the menu.
+   */
+  entrance?: 'walk' | 'wait' | 'leave'
   /** the builds of this fighter and of its opponent (the standard one when not given) */
   build?: Build
   foeBuild?: Build
@@ -208,6 +223,119 @@ const JOY_HEIGHT = 0.42 // how high the body rises in the air, in figure units
 const JOY_ALPHA: readonly Key[] = [[0, 0.9], [0.08, 0.95], [JOY_TAKEOFF, 0.05], [0.4, 0.6], [0.54, 0.3], [JOY_LANDING, 0.1], [0.78, 0.55], [0.92, 0.95], [1, 0.9]]
 const JOY_LEAN: readonly Key[] = [[0, 0.17], [0.08, 0.18], [JOY_TAKEOFF, -0.06], [JOY_LANDING, -0.02], [0.78, 0.1], [0.92, 0.17], [1, 0.17]]
 const JOY_ARMS: readonly Key[] = [[0, 0.1], [0.08, 0], [JOY_TAKEOFF, 1], [0.5, 1], [0.72, 0.5], [0.92, 0.1], [1, 0.1]]
+
+/** The entrance: how long the walk in takes, how far outside its place the fighter starts (beyond the frame, whatever the window), and the stride. */
+export const ENTER_S = 2.4
+export const EXIT_S = 2.2
+const TURN_S = 0.5 // turning round before it walks out
+const ENTER_DIST = 6.6
+const STEPS_PER_S = 2.5
+
+/**
+ * Idle fidgets. While a fighter waits for the player to choose, it does a little something now and then, at random moments (but the
+ * same ones every time the scene is drawn: `fidgetAt` is a pure function of the time and the fighter's seed).
+ */
+export const FIDGET_KINDS = ['scratch', 'lookAtPlayer', 'kickBall', 'shakeOut', 'stretchNeck', 'shadowBox', 'shiftWeight', 'crackKnuckles', 'wipeNose', 'lookAround', 'taunt'] as const
+export type FidgetKind = (typeof FIDGET_KINDS)[number]
+export const FIDGET_SECONDS: Record<FidgetKind, number> = {
+  scratch: 2.4, lookAtPlayer: 2.6, kickBall: 2.4, shakeOut: 2.0, stretchNeck: 2.6, shadowBox: 2.2, shiftWeight: 1.8, crackKnuckles: 2.2, wipeNose: 1.5, lookAround: 3.0, taunt: 4.8,
+}
+/** Nothing before this long into the wait (the hint comes up after 3 s), then a fidget every 4.5-8 s. */
+export const FIDGET_FIRST = 3.5
+const rnd = (n: number): number => {
+  const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453
+  return x - Math.floor(x)
+}
+export interface Fidget {
+  kind: FidgetKind
+  /** seconds into it */
+  u: number
+}
+/** The fidget going on `t` seconds into a wait (null when none). */
+export function fidgetAt(t: number, seed: number): Fidget | null {
+  let start = FIDGET_FIRST
+  for (let k = 0; start <= t; k++) {
+    const len = 4.5 + 3.5 * rnd(k * 7.31 + seed * 3.7)
+    if (t < start + len) {
+      const kind = FIDGET_KINDS[Math.floor(rnd(k * 3.17 + seed * 1.9 + 9) * FIDGET_KINDS.length)]!
+      const u = t - start
+      return u < FIDGET_SECONDS[kind] ? { kind, u } : null
+    }
+    start += len
+  }
+  return null
+}
+
+/** What a fidget does to the pose: arms and the kicking leg as they are to be (blended in by the envelope), the rest added to the pose. */
+interface FidgetFx {
+  armN?: ArmPose
+  armF?: ArmPose
+  head?: number
+  headYaw?: number
+  alpha?: number
+  lean?: number
+  x?: number
+  twist?: number
+  pelvis?: number
+  /** turned round (see Pose.turn): not blended by the envelope, it is 0 at the ends of the fidget anyway */
+  turn?: number
+  kick?: { leg: LegPose; w: number }
+}
+/** The taunting dance, in time: the dance (0 to 1.1 s), turning round (1.1-1.6), the behind wiggling (to 3.6), turning back (3.6-4.1), the dance again. */
+const TAUNT_TURN = (u: number): number => smooth(clamp01((u - 1.1) / 0.5)) * (1 - smooth(clamp01((u - 3.6) / 0.5)))
+const TAUNT_BACK = (u: number): number => smooth(clamp01((u - 1.3) / 0.4)) * (1 - smooth(clamp01((u - 3.5) / 0.4)))
+const bump = (u: number, a: number, b: number): number => (u <= a || u >= b ? 0 : Math.sin((Math.PI * (u - a)) / (b - a)))
+function fidgetFx(kind: FidgetKind, u: number): FidgetFx {
+  const wave = (hz: number): number => Math.sin(u * 2 * Math.PI * hz)
+  switch (kind) {
+    case 'scratch': // the near hand to the top of the head, scrubbing
+      return { armN: { s: 1.8, e: 2.0 + 0.25 * Math.sin(u * 20) }, head: 0.12 }
+    case 'wipeNose': // a quick swipe of the fist under the nose
+      return { armN: { s: 1.0, e: 2.2 + 0.18 * Math.sin(u * 24) }, head: -0.05 }
+    case 'lookAtPlayer': // turns its head toward the player (the camera), holds, turns back
+      return { headYaw: 0.95, head: -0.06 }
+    case 'lookAround': // looks one way, then the other
+      return { headYaw: 0.8 * wave(0.45), head: 0.06 * wave(0.9) }
+    case 'stretchNeck': // rolls the head about
+      return { head: 0.32 * wave(0.9), headYaw: 0.5 * Math.sin(u * 2 * Math.PI * 0.9 + 1.2), lean: -0.04 }
+    case 'shakeOut': // shakes the arms loose
+      return { armN: { s: 0.15 + 0.3 * wave(2.4), e: 0.45 }, armF: { s: 0.15 - 0.3 * wave(2.4), e: 0.45 }, alpha: 0.03 * wave(2.4), head: 0.04 * wave(1.2) }
+    case 'crackKnuckles': // the fists together in front, squeezing
+      return { armN: { s: 1.25, e: 1.3 + 0.12 * wave(3.5) }, armF: { s: 1.25, e: 1.3 + 0.12 * wave(3.5) }, head: -0.12 }
+    case 'shadowBox': { // bounces, and throws a couple of jabs at nothing
+      const p = Math.max(0, Math.sin(u * 2 * Math.PI * 1.4)) ** 3
+      return { alpha: 0.13 * Math.max(0, wave(3)), armN: { s: 0.62 + 0.9 * p, e: 1.95 - 1.4 * p }, lean: 0.1 * p, twist: 0.3 * p }
+    }
+    case 'shiftWeight': // shifts its weight, and settles again
+      return { x: 0.1 * bump(u, 0, 1.8), alpha: 0.12 * bump(u, 0, 1.8), lean: 0.05 * bump(u, 0, 1.8) }
+    case 'taunt': {
+      // a dance to tease the opponent: bouncing on the knees, the hips and the shoulders swaying, the elbows pumping in turn; then it
+      // turns its back to the opponent, bends over and wiggles its behind, and turns round again to finish the dance
+      const back = TAUNT_BACK(u)
+      const beat = Math.sin(u * 2 * Math.PI * 2.5)
+      const wiggle = Math.sin(u * 2 * Math.PI * 4)
+      const dance = { alpha: 0.13 * (0.5 - 0.5 * Math.cos(u * 2 * Math.PI * 2.5)), pelvis: 0.4 * Math.sin(u * 2 * Math.PI * 1.25), twist: 0.35 * Math.sin(u * 2 * Math.PI * 1.25 + Math.PI / 2), head: 0.1 * beat, lean: 0.05 }
+      const mixed = (d: number, w: number): number => d * (1 - back) + w * back
+      return {
+        alpha: mixed(dance.alpha, 0.38 + 0.12 * (0.5 - 0.5 * Math.cos(u * 2 * Math.PI * 4))),
+        pelvis: mixed(dance.pelvis, 0.55 * wiggle),
+        twist: mixed(dance.twist, -0.15 * wiggle),
+        lean: mixed(dance.lean, 0.32),
+        head: mixed(dance.head, -0.12),
+        armN: mixArm({ s: 1.1, e: 1.5 + 0.6 * beat }, { s: 0.35, e: 0.2 }, back), // (the hands on the knees)
+        armF: mixArm({ s: 1.0, e: 1.5 - 0.6 * beat }, { s: 0.3, e: 0.2 }, back),
+        turn: TAUNT_TURN(u),
+      }
+    }
+    case 'kickBall': {
+      // looks down at the floor, takes a short swing at an imaginary ball with the near foot, looks up again
+      const swing = bump(u, 0.95, 1.5)
+      return { head: -0.42 * bump(u, 0.05, 2.3), lean: 0.06 * bump(u, 0.05, 2.3), kick: { leg: { h: 0.9, k: -0.25, a: -0.55 }, w: swing } }
+    }
+  }
+}
+/** The strength of a fidget over its time: it eases in and out. */
+const fidgetEnvelope = (kind: FidgetKind, u: number): number => smooth(clamp01(u / 0.35)) * smooth(clamp01((FIDGET_SECONDS[kind] - u) / 0.4))
 
 const GUARD_N: ArmPose = { s: 0.62, e: 1.95 } // fists up by the chin
 const GUARD_F: ArmPose = { s: 0.5, e: 2.0 }
@@ -557,7 +685,41 @@ function superPose(t: number, input: PoseInput, clock: number, phase: number): P
  * @param clock a free-running clock (seconds) for the idle bounce and breathing
  * @param phase offsets the idle bounce so the two fighters do not move in lockstep
  */
+/** The pose of a fighter walking in: a stride with the knees bending as the legs swing, the fists up in the guard, a little bob. */
+function walkPose(t: number, off: number, input: PoseInput, clock: number, phase: number, wait = false, guard = smooth(clamp01((0.3 - off) / 0.3))): Pose {
+  const idle = computePose(t, { ...input, entrance: undefined, strike: null, incoming: null, won: false, ko: false, stumble: false }, clock, phase)
+  if (wait) return { ...idle, x: -ENTER_DIST } // still off the frame: standing, out of sight
+  const ph = t * STEPS_PER_S * 2 * Math.PI
+  const swing = 0.5 * Math.sin(ph)
+  const lift = (v: number): number => 0.25 + 0.7 * Math.max(0, v) // the knee of the leg that swings forward bends
+  const legN: LegPose = { h: swing, k: -lift(Math.cos(ph)), a: 0 }
+  const legF: LegPose = { h: -swing, k: -lift(-Math.cos(ph)), a: 0 }
+  legN.a = -(legN.h + legN.k)
+  legF.a = -(legF.h + legF.k)
+  // next to its place (arriving, or just leaving it) the legs are in the stance: the stride builds up and dies down over a short way
+  const arrive = smooth(clamp01(1 - off / 0.12))
+  // the arms hang and swing against the legs, as in an ordinary walk; the fists go up to the guard only on the arena (`guard`: 0 = down, 1 = up)
+  const down = (swingOf: number): ArmPose => ({ s: -1.6 * swingOf, e: 0.25 + 0.7 * Math.max(0, -swingOf) })
+  return {
+    ...idle,
+    x: -ENTER_DIST * off,
+    y: idle.y + 0.05 * Math.abs(Math.sin(ph)) * (1 - arrive),
+    legN: mixLeg(legN, idle.legN, arrive),
+    legF: mixLeg(legF, idle.legF, arrive),
+    armN: mixArm(down(-swing), idle.armN, guard), // (the near arm swings with the far leg)
+    armF: mixArm(down(swing), idle.armF, guard),
+    lean: idle.lean + 0.06 * (1 - arrive),
+  }
+}
+
 export function computePose(t: number, input: PoseInput, clock = 0, phase = 0): Pose {
+  if (input.entrance === 'leave') {
+    // it turns right round on the spot, and then walks out the way a walker does, face first (out of the frame it goes on striding)
+    const u = clamp01((t - TURN_S * 0.8) / (EXIT_S - TURN_S * 0.8))
+    return { ...walkPose(t, u ** 1.5, input, clock, phase, false, 1 - smooth(clamp01(t / (TURN_S * 0.8)))), turn: smooth(clamp01(t / TURN_S)) } // (the fists come down as it turns)
+  }
+  if (input.entrance === 'wait') return walkPose(t, 1, input, clock, phase, true)
+  if (input.entrance === 'walk' && t < ENTER_S) return walkPose(t, (1 - clamp01(t / ENTER_S)) ** 2, input, clock, phase) // (it comes in fast from beyond the frame and slows down as it arrives)
   if (input.strike?.weapon === 'super') return superPose(t, input, clock, phase)
   const { strike, incoming, stumble, ko, won } = input
   const bd = input.build ?? STANDARD
@@ -695,14 +857,36 @@ export function computePose(t: number, input: PoseInput, clock = 0, phase = 0): 
     armF = blendArm(armF, { s: 2.2 + 0.5 * swing, e: 0.35 - 0.1 * swing }, w)
   }
 
+  // an idle fidget: only while it stands in its guard doing nothing (no strike, no blow coming in, nobody won or fell, not walking)
+  let headYaw = 0
+  let fidgetTurn = 0
+  let fidgetKick: { leg: LegPose; w: number } | null = null
+  const fidget = input.idle && !strike && !incoming && !won && !ko && (input.entrance !== 'walk' || t >= ENTER_S) ? (input.idle.force ?? fidgetAt(t, input.idle.seed)) : null
+  if (fidget) {
+    const fx = fidgetFx(fidget.kind, fidget.u)
+    const w = fidgetEnvelope(fidget.kind, fidget.u)
+    if (fx.armN) armN = mixArm(armN, fx.armN, w)
+    if (fx.armF) armF = mixArm(armF, fx.armF, w)
+    b.head += (fx.head ?? 0) * w
+    b.alpha += (fx.alpha ?? 0) * w
+    b.lean += (fx.lean ?? 0) * w
+    b.x += (fx.x ?? 0) * w
+    b.twist += (fx.twist ?? 0) * w
+    b.pelvis += (fx.pelvis ?? 0) * w
+    headYaw = (fx.headYaw ?? 0) * w
+    fidgetTurn = fx.turn ?? 0
+    if (fx.kick) fidgetKick = { leg: fx.kick.leg, w: fx.kick.w * w }
+  }
+
   // a winner who has just thrown a kick has the leg of that kick (back in its stance by now): it joins the other for the jumps
   const own = planted(STANCE.n * (1 - together) + b.step, b.alpha, bd)
   let legN = kick ? (together > 0 ? blendLeg(kick, own, together) : kick) : own
   const legF = planted(STANCE.f * (1 - together) - 0.8 * b.step, b.alpha, bd)
+  if (fidgetKick) legN = mixLeg(legN, fidgetKick.leg, fidgetKick.w)
   if (lift && !kick) legN = blendLeg(legN, { h: 0.95, k: -1.7, a: 0.2 }, lift.w)
   const kicking = kick !== null && together < 0.5
   const standing = (kicking ? ext(legF, bd) : Math.max(ext(legN, bd), ext(legF, bd))) - bd.hipY + bd.ankle
   const y = lerp(standing, 0.32, fall) + hop + air
 
-  return { x: b.x, y, lean: b.lean, twist: b.twist, pelvis: b.pelvis, head: b.head, armN, armF, legN, legF, fall, flash }
+  return { x: b.x, y, lean: b.lean, twist: b.twist, pelvis: b.pelvis, head: b.head, headYaw, turn: fidgetTurn, armN, armF, legN, legF, fall, flash }
 }

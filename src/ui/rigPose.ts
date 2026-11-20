@@ -16,6 +16,11 @@ export type Joints = Partial<Record<JointName, Object3D>>
 export function applyPose(J: Joints, P: Pose, dir: number, near: number): void {
   J.root!.position.set(-dir * BASE_X + dir * P.x, P.y, 0)
   J.tilt!.rotation.z = P.fall * 1.5
+  // turned right round (a fighter leaving the arena): the whole figure turns about its own vertical axis
+  if (J.facing) {
+    J.facing.userData.baseY ??= J.facing.rotation.y
+    J.facing.rotation.y = (J.facing.userData.baseY as number) + (P.turn ?? 0) * Math.PI
+  }
   J.pelvis!.rotation.y = P.pelvis * near
   J.chest!.rotation.set(0, P.twist * near, -P.lean) // leaning forward is a negative turn about z
   J.neck!.rotation.z = P.head

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useLayoutEffect, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import type { Zone } from '../sim'
 import { usePortrait } from './usePortrait'
@@ -58,7 +59,8 @@ const rot = (rad: number): string => `rotate(${deg(rad).toFixed(2)})`
  */
 function apply(J: Partial<Record<JointName, SVGGElement>>, P: Pose, t: number, spark: readonly [number, number] | null, hitAt: number | null): void {
   const set = (n: JointName, v: string) => J[n]?.setAttribute('transform', v)
-  set('root', `translate(${P.x.toFixed(3)} ${P.y.toFixed(3)}) ${rot(P.fall * 1.5)}`)
+  // (turned round, the flat figure is seen from the other side: it is squeezed through nothing and mirrored)
+  set('root', `translate(${P.x.toFixed(3)} ${P.y.toFixed(3)}) scale(${Math.cos((P.turn ?? 0) * Math.PI).toFixed(3)} 1) ${rot(P.fall * 1.5)}`)
   set('shadow', `translate(${P.x.toFixed(3)} 0)`)
   set('chest', `translate(0 ${HIP_Y + WAIST}) ${rot(-P.lean)}`)
   set('neck', `translate(0 ${NECK_UP}) ${rot(P.head)}`)
@@ -210,6 +212,7 @@ function Arm({ limb, reg }: { limb: Limb; reg: Reg }) {
 
 /** The whole 2D ring as one SVG scene, so a fist that is aimed at the opponent's head really arrives at it. */
 export function Scene2D({ player, enemy, settled, far, stand }: { player: FighterView; enemy: FighterView; settled: boolean; far: boolean; stand: number }) {
+  const { t } = useTranslation()
   const portrait = usePortrait()
   // in a tall window the frame is narrow: it is cut down to the two fighters, so that they fill the width as big as they can be
   const box = portrait ? { x: -HALF_WIDTH, y: -(TALL_H - TALL_BELOW), w: 2 * HALF_WIDTH, h: TALL_H } : far ? { x: -5.5, y: -5.63, w: 11, h: 6.62 } : { x: -3.8, y: -4.1, w: 7.6, h: 4.5 }
@@ -237,7 +240,7 @@ export function Scene2D({ player, enemy, settled, far, stand }: { player: Fighte
   return (
     <div className={`scene${far ? ' far' : ''}${portrait ? ' tall' : ''}`}>
       {/* the fighters fill most of the frame; in front of an arena picture the frame is wider, so they stand in it, small, and the arena is big */}
-      <svg ref={svgRef} viewBox={`${box.x} ${flipped.toFixed(3)} ${box.w} ${box.h}`} role="img" aria-label="Two fighters">
+      <svg ref={svgRef} viewBox={`${box.x} ${flipped.toFixed(3)} ${box.w} ${box.h}`} role="img" aria-label={t('arena.fighters')}>
         <g transform="scale(1 -1)">
           <rect className="floor" x="-30" y="-0.5" width="60" height="0.5" />
           <line className="floor-line" x1="-30" y1="0" x2="30" y2="0" />

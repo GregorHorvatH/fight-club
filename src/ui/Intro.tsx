@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { play } from '../audio/synth'
+import { useTranslation } from 'react-i18next'
 import { useGame } from '../state/game'
 import { useNames } from './names'
 
@@ -13,6 +14,7 @@ const BELL_AT_MS = 1150
  * nothing of it stays on the screen afterwards.
  */
 export function Intro() {
+  const { t } = useTranslation()
   const matchId = useGame((s) => s.matchId)
   const names = useNames()
   const [done, setDone] = useState(0) // the last match whose intro has played
@@ -29,9 +31,9 @@ export function Intro() {
   return (
     <div className="intro" key={matchId} aria-hidden="true">
       <span className="nm player">{names.player}</span>
-      <span className="vs">VS</span>
+      <span className="vs">{t('intro.vs')}</span>
       <span className="nm enemy">{names.enemy}</span>
-      <span className="fight">FIGHT!</span>
+      <span className="fight">{t('intro.fight')}</span>
     </div>
   )
 }
