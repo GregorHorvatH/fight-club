@@ -13,7 +13,7 @@ interface Load {
   failed: boolean
   start: (url: string) => void
   done: (url: string) => void
-  progress: (url: string, e: ProgressEvent) => void
+  progress: (url: string, loaded: number, total: number) => void
   fail: () => void
   dismiss: () => void
 }
@@ -24,7 +24,7 @@ export const useModelLoad = create<Load>((set) => ({
   failed: false,
   start: (url) => set((s) => (s.waiting.includes(url) ? s : { waiting: [...s.waiting, url] })),
   done: (url) => set((s) => ({ waiting: s.waiting.filter((u) => u !== url) })),
-  progress: (url, e) => set((s) => ({ bytes: { ...s.bytes, [url]: { loaded: e.loaded, total: e.lengthComputable ? e.total : 0 } } })),
+  progress: (url, loaded, total) => set((s) => ({ bytes: { ...s.bytes, [url]: { loaded, total } } })),
   fail: () => set({ failed: true }),
   dismiss: () => set({ failed: false }),
 }))

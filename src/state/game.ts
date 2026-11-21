@@ -7,6 +7,7 @@ import { difficultyAt, ladderFor, type Tournament } from './tournament'
 import { useUnlocks } from './unlocks'
 import { fighterOf, isUnlocked, rivalOf, slotFighter, SLOTS, FIGHTERS, type FighterId } from './roster'
 import { LANGUAGES } from '../i18n'
+import { warmModel } from './modelFiles'
 import { useSettings, type Mode } from './settings'
 
 /** menu -> (about | setup -> select -> choose -> reveal -> (choose -> reveal)* -> over) and back to the menu */
@@ -536,15 +537,8 @@ export const useGame = create<Game>((set, get) => {
 // (or on their way) when the arena opens, e.g. while the player is still reading the ladder (never in the main menu: the fighters there
 // are only the defaults, and a phone would download 4 MB for nothing). A failed request is not a problem: the
 // arena asks again and says so if it fails too.
-const warmed = new Set<string>()
 function warmModels(ids: readonly FighterId[]): void {
-  if (typeof fetch !== 'function') return
-  for (const id of ids) {
-    const url = `${import.meta.env.BASE_URL}${fighterOf(id).model}`
-    if (warmed.has(url)) continue
-    warmed.add(url)
-    fetch(url, { priority: 'low' } as RequestInit).catch(() => warmed.delete(url))
-  }
+  for (const id of ids) warmModel(`${import.meta.env.BASE_URL}${fighterOf(id).model}`)
 }
 useGame.subscribe((s, prev) => {
   if (s.fighters !== prev.fighters && s.phase !== 'menu' && useSettings.getState().view === '3d') warmModels([s.fighters.player, s.fighters.enemy])

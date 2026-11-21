@@ -2,7 +2,7 @@ import { useFrame, useLoader } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Color, MeshStandardMaterial, Quaternion, Vector3, type MeshBasicMaterial, type Object3D, type SkinnedMesh } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { useModelLoad } from '../state/modelLoad'
+import { takeModel } from '../state/modelFiles'
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { useGame } from '../state/game'
 import { fighterOf } from '../state/roster'
@@ -185,7 +185,12 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
   const character = fighterOf(useGame((s) => s.fighters[side]))
   const foeId = useGame((s) => s.fighters[side === 'player' ? 'enemy' : 'player'])
   const url = `${import.meta.env.BASE_URL}${character.model}`
-  const gltf = useLoader(GLTFLoader, url, undefined, (e) => useModelLoad.getState().progress(url, e))
+  // the file comes from the shared download (the early request of game.ts may already have it); the loader only parses it
+  const gltf = useLoader(GLTFLoader, url, (loader) => {
+    loader.load = (u, onLoad, _progress, onError) => {
+      takeModel(u).then((bytes) => loader.parse(bytes, '', onLoad, (e) => onError?.(e)), (e) => onError?.(e))
+    }
+  })
   const model = useMemo(() => buildModel(gltf.scene, TEAM[side], character.hide, character.id, character.height), [gltf, side, character])
   const bd = model.build
   // the opponent's blows and ours are worked out for the two builds: the opponent's is known once its model is loaded
