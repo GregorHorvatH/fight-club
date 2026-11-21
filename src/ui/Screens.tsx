@@ -3,7 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { LANGUAGES } from '../i18n'
 import { arenaUrl, NO_ARENA, pickArena, useArenas } from '../state/arenas'
 import { TOUCH } from '../state/touch'
-import { END_ITEMS, OPTION_SWITCHES, PAUSE_ITEMS, SETUP_ITEMS, useGame } from '../state/game'
+import { END_ITEMS, OPTION_SWITCHES, PAUSE_ITEMS, SETUP_ITEMS, SOUNDTRACK_ROW, useGame } from '../state/game'
 import { MENU, MENU_INFO, useMenu } from '../state/menu'
 import { difficultyAt } from '../state/tournament'
 import { usePortrait } from './usePortrait'
@@ -163,9 +163,12 @@ function OptionsScreen() {
     onFocus: () => pointOptions(i),
     onClick: () => chooseOptions(i),
   })
+  const soundtrack = useSettings((s) => s.soundtrack)
   const switches = [
-    { label: t('options.effects'), off: effectsOff },
-    { label: t('options.music'), off: musicOff },
+    { label: t('options.effects'), value: effectsOff ? t('options.off') : t('options.on'), off: effectsOff },
+    { label: t('options.music'), value: musicOff ? t('options.off') : t('options.on'), off: musicOff },
+    // the soundtrack of the fights: the opponent's, or one chosen (each press goes to the next; the left and right keys go either way)
+    { label: t('options.soundtrack'), value: soundtrack === 'auto' ? t('options.auto') : fighterOf(soundtrack).name, off: false },
   ]
   // a long list: the item the cursor is on is kept in view as it moves (the screen scrolls when the window is short)
   const screen = useRef<HTMLDivElement>(null)
@@ -179,9 +182,9 @@ function OptionsScreen() {
       <ul role="menu" className="items">
         {switches.map((sw, i) => (
           <li key={i} role="none">
-            <button role="menuitemcheckbox" aria-checked={!sw.off} className={`item${optionsCursor === i ? ' on' : ''}`} {...row(i)}>
+            <button role={i === SOUNDTRACK_ROW ? 'menuitem' : 'menuitemcheckbox'} aria-checked={i === SOUNDTRACK_ROW ? undefined : !sw.off} className={`item${optionsCursor === i ? ' on' : ''}`} {...row(i)}>
               {sw.label}
-              <small>{sw.off ? t('options.off') : t('options.on')}</small>
+              <small>{sw.value}</small>
             </button>
           </li>
         ))}

@@ -35,7 +35,7 @@ export const es = {
     soon: 'pronto',
     comingSoon: '{{label}} llegará pronto.',
   },
-  options: { title: 'Opciones', language: 'Idioma', sound: 'Sonido', effects: 'Efectos de sonido', music: 'Música', on: 'Activado', off: 'Desactivado', languageBlurb: 'El idioma del juego. Se recuerda.' },
+  options: { title: 'Opciones', language: 'Idioma', sound: 'Sonido', effects: 'Efectos de sonido', music: 'Música', on: 'Activado', off: 'Desactivado', soundtrack: "Banda sonora", auto: "Del rival", languageBlurb: 'El idioma del juego. Se recuerda.' },
   about: {
     title: 'Acerca de',
     intro: 'En cada asalto, los dos luchadores eligen en secreto una zona que <b>golpear</b> y una zona que <b>proteger</b>: cabeza, cuerpo o piernas. Protege la zona que golpea tu rival y no recibes nada. Pierde quien se quede primero sin salud.',

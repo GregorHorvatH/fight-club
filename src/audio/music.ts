@@ -1,10 +1,16 @@
 /**
- * The theme of the menus, played live like every other sound in the game (Web Audio, no files): A minor, 108 beats a minute,
+ * The music of the game: the theme of the menus (below) and the theme of the fight (fightTheme.ts), played live like every other sound
+ * in the game (Web Audio, no files). The theme of the menus: A minor, 108 beats a minute,
  * sixteen bars that go round: a drum beat that builds, a bass on the roots, a plucked arpeggio through an echo, a slow pad, and, in the
  * second half, a lead that sings the tune. `scheduleStep` writes one sixteenth into any audio context, so the same music can be
  * rendered to a file (scripts/render-menu-theme.mjs) or played live by the scheduler below.
  */
-import { audioContext } from './synth'
+import { audioContext, onSound, type Sound } from './synth'
+import { COMPOSED_STEPS, makeStyleBus, scheduleStyled } from './composer'
+import { FIGHT_BPM, FIGHT_STEP_S, FIGHT_STEPS, makeFightBus, scheduleFightStep } from './fightTheme'
+import { STYLES } from './styles'
+import { FIGHTERS, type FighterId } from '../state/roster'
+import { hit, hz, note, type Bus, type Voice } from './voices'
 import { useSettings } from '../state/settings'
 
 export const BPM = 108
@@ -13,7 +19,7 @@ const BARS = 16
 export const LOOP_STEPS = BARS * 16
 export const LOOP_S = LOOP_STEPS * STEP_S
 
-const hz = (midi: number): number => 440 * 2 ** ((midi - 69) / 12)
+
 
 /** The chord of each bar: the root for the bass, and the three notes the pad and the arpeggio use. */
 interface Chord {
@@ -39,103 +45,6 @@ const TUNE: readonly (readonly (readonly [number, number, number])[])[] = [
   [[0, 71, 4], [4, 68, 4], [8, 71, 4], [12, 76, 4]],
 ]
 const ARP = [0, 1, 2, 3, 2, 1, 2, 1, 0, 1, 2, 3, 4, 3, 2, 1] // which of the chord's notes (the 4th is the octave, the 5th the third above it)
-
-let noise: AudioBuffer | null = null
-function noiseOf(c: BaseAudioContext): AudioBuffer {
-  if (!noise || noise.sampleRate !== c.sampleRate) {
-    noise = c.createBuffer(1, c.sampleRate, c.sampleRate)
-    const d = noise.getChannelData(0)
-    let seed = 12345
-    for (let i = 0; i < d.length; i++) {
-      seed = (seed * 1664525 + 1013904223) >>> 0 // the same noise every time: the render is the same every time
-      d[i] = (seed / 4294967296) * 2 - 1
-    }
-  }
-  return noise
-}
-
-interface Voice {
-  type: OscillatorType
-  freq: number
-  at: number
-  dur: number
-  gain: number
-  attack?: number
-  release?: number
-  cutoff?: number
-  detune?: number
-  /** the filter opens from this to `cutoff` over the note (a pluck) */
-  from?: number
-  /** a tremble of the pitch (cents) */
-  vibrato?: number
-}
-
-/** One note: an oscillator through a low-pass filter and an envelope. */
-function note(c: BaseAudioContext, to: AudioNode, v: Voice): void {
-  const o = c.createOscillator()
-  const f = c.createBiquadFilter()
-  const g = c.createGain()
-  o.type = v.type
-  o.frequency.value = v.freq
-  if (v.detune) o.detune.value = v.detune
-  f.type = 'lowpass'
-  f.Q.value = 0.8
-  const cutoff = v.cutoff ?? 2000
-  f.frequency.setValueAtTime(v.from ?? cutoff, v.at)
-  if (v.from) f.frequency.exponentialRampToValueAtTime(cutoff, v.at + Math.min(v.dur, 0.25))
-  const attack = v.attack ?? 0.005
-  const end = v.at + v.dur
-  g.gain.setValueAtTime(0.0001, v.at)
-  g.gain.linearRampToValueAtTime(v.gain, v.at + attack)
-  g.gain.setValueAtTime(v.gain, Math.max(v.at + attack, end - 0.01))
-  g.gain.exponentialRampToValueAtTime(0.0001, end + (v.release ?? 0.06))
-  if (v.vibrato) {
-    const l = c.createOscillator()
-    const d = c.createGain()
-    l.frequency.value = 5.2
-    d.gain.value = v.vibrato
-    l.connect(d).connect(o.detune)
-    l.start(v.at)
-    l.stop(end + (v.release ?? 0.06) + 0.02)
-  }
-  o.connect(f).connect(g).connect(to)
-  o.start(v.at)
-  o.stop(end + (v.release ?? 0.06) + 0.02)
-}
-
-/** A hit of filtered noise (and an optional tone that falls): the hats, the snare, the kick. */
-function hit(c: BaseAudioContext, to: AudioNode, at: number, o: { type: BiquadFilterType; freq: number; dur: number; gain: number; tone?: [number, number, number] }): void {
-  const s = c.createBufferSource()
-  const f = c.createBiquadFilter()
-  const g = c.createGain()
-  s.buffer = noiseOf(c)
-  f.type = o.type
-  f.frequency.value = o.freq
-  g.gain.setValueAtTime(o.gain, at)
-  g.gain.exponentialRampToValueAtTime(0.0001, at + o.dur)
-  s.connect(f).connect(g).connect(to)
-  s.start(at)
-  s.stop(at + o.dur + 0.02)
-  if (o.tone) {
-    const [f0, f1, gain] = o.tone
-    const t = c.createOscillator()
-    const tg = c.createGain()
-    t.type = 'sine'
-    t.frequency.setValueAtTime(f0, at)
-    t.frequency.exponentialRampToValueAtTime(f1, at + o.dur)
-    tg.gain.setValueAtTime(gain, at)
-    tg.gain.exponentialRampToValueAtTime(0.0001, at + o.dur)
-    t.connect(tg).connect(to)
-    t.start(at)
-    t.stop(at + o.dur + 0.02)
-  }
-}
-
-/** Where the parts go: dry to the master, and the arpeggio and the lead also to the echo. */
-export interface Bus {
-  dry: AudioNode
-  echo: AudioNode
-}
 
 /** Writes the sixteenth number `step` (counted from the start of the loop, any whole number) into the context, to sound at time `at`. */
 export function scheduleStep(c: BaseAudioContext, bus: Bus, step: number, at: number, mark?: (hit: 'kick' | 'snare', at: number) => void): void {
@@ -216,16 +125,59 @@ export function makeBus(c: BaseAudioContext, master: AudioNode): Bus {
   return { dry, echo }
 }
 
-// ---- playing it ----
+// ---- the themes, and playing them ----
 
-const VOLUME = 0.5
+/** A theme: how it is written into an audio context, and the graph it plays through. */
+/** The music of the menus, or the soundtrack of a fighter. */
+export type TrackId = 'menu' | FighterId
+
+export interface Track {
+  id: TrackId
+  bpm: number
+  /** a sixteenth note, in seconds */
+  stepS: number
+  /** the length of the loop in sixteenths */
+  steps: number
+  /** how loud it plays (the sound effects are heard over it) */
+  volume: number
+  schedule: (c: BaseAudioContext, bus: Bus, step: number, at: number, mark?: (hit: 'kick' | 'snare', at: number) => void) => void
+  makeBus: (c: BaseAudioContext, master: AudioNode) => Bus
+}
+
+/** The soundtrack that is mixed to the loudness of the first one (James's); a style's own `level` trims it. */
+const FIGHT_VOLUME = 0.2
+
+const styled = (id: Exclude<FighterId, 'james'>): Track => {
+  const style = STYLES[id]
+  return {
+    id,
+    bpm: style.bpm,
+    stepS: 60 / style.bpm / 4,
+    steps: COMPOSED_STEPS,
+    volume: FIGHT_VOLUME * (style.level ?? 1),
+    schedule: (c, bus, step, at, mark) => scheduleStyled(style, c, bus, step, at, mark),
+    makeBus: (c, master) => makeStyleBus(style, c, master),
+  }
+}
+
+export const TRACKS = {
+  menu: { id: 'menu', bpm: BPM, stepS: STEP_S, steps: LOOP_STEPS, volume: 0.5, schedule: scheduleStep, makeBus },
+  james: { id: 'james', bpm: FIGHT_BPM, stepS: FIGHT_STEP_S, steps: FIGHT_STEPS, volume: FIGHT_VOLUME, schedule: scheduleFightStep, makeBus: makeFightBus },
+  ...Object.fromEntries(FIGHTERS.filter((f) => f.id !== 'james').map((f) => [f.id, styled(f.id as Exclude<FighterId, 'james'>)])),
+} as Record<TrackId, Track>
+
 const FADE_IN_S = 1.6
 const FADE_OUT_S = 0.9
 const LOOKAHEAD_S = 0.25
+/** While the fight is paused the music goes quiet (not off): this much of its volume. */
+const DUCKED = 0.3
 
 interface Playing {
+  track: Track
   c: AudioContext
   master: GainNode
+  /** between the music and the master: it dips for a moment at every blow, so that the blow is heard */
+  side: GainNode
   analyser: AnalyserNode
   /** the drum hits written so far (audio-clock time and kind), newest last: the picture moves to them */
   hits: { at: number; kind: 'kick' | 'snare' }[]
@@ -235,21 +187,27 @@ interface Playing {
   step: number
 }
 let playing: Playing | null = null
-let wanted = false
+let wanted: TrackId | null = null
+let ducked = false
+
+const levelOf = (t: Track): number => t.volume * (ducked ? DUCKED : 1)
 
 function start(): void {
   if (playing || !wanted) return
+  const track = TRACKS[wanted]
   const c = audioContext()
   if (!c) return
   const master = c.createGain()
   master.gain.setValueAtTime(0.0001, c.currentTime)
-  master.gain.exponentialRampToValueAtTime(VOLUME, c.currentTime + FADE_IN_S)
+  master.gain.exponentialRampToValueAtTime(levelOf(track), c.currentTime + FADE_IN_S)
   master.connect(c.destination)
+  const side = c.createGain()
+  side.connect(master)
   const analyser = c.createAnalyser()
   analyser.fftSize = SPECTRUM_BINS * 2
   analyser.smoothingTimeConstant = 0.72
   master.connect(analyser) // (listens only: the picture draws what it hears)
-  const p: Playing = { c, master, analyser, hits: [], bus: makeBus(c, master), timer: 0 as unknown as ReturnType<typeof setInterval>, next: c.currentTime + 0.08, step: 0 }
+  const p: Playing = { track, c, master, side, analyser, hits: [], bus: track.makeBus(c, side), timer: 0 as unknown as ReturnType<typeof setInterval>, next: c.currentTime + 0.08, step: 0 }
   p.timer = setInterval(() => tick(p), 40)
   playing = p
   // a browser keeps the sound off until the player does something (a tap, a key): the music starts as soon as they do
@@ -261,15 +219,16 @@ function start(): void {
 
 function tick(p: Playing): void {
   const now = p.c.currentTime
+  const { stepS } = p.track
   if (p.next < now) {
     // the page was in the background (the timer slows down there): carry on from here instead of playing what was missed all at once
-    const missed = Math.floor((now - p.next) / STEP_S)
+    const missed = Math.floor((now - p.next) / stepS)
     p.step += missed
-    p.next += missed * STEP_S
+    p.next += missed * stepS
   }
   while (p.next < now + LOOKAHEAD_S) {
-    scheduleStep(p.c, p.bus, p.step, p.next, (kind, at) => p.hits.push({ at, kind }))
-    p.next += STEP_S
+    p.track.schedule(p.c, p.bus, p.step, p.next, (kind, at) => p.hits.push({ at, kind }))
+    p.next += stepS
     p.step += 1
   }
 }
@@ -286,11 +245,64 @@ function stop(): void {
   setTimeout(() => p.master.disconnect(), (FADE_OUT_S + 2) * 1000) // (the notes already written are let go with the echo's tail)
 }
 
-/** Asks for the menu theme to be playing (or not): it fades in and out, and it is silent while the sound is muted. */
-export function setMusic(on: boolean): void {
-  wanted = on
-  if (on && audible()) start()
+/**
+ * Asks for a theme to be playing (or none): it fades in and out, one theme fades into the other, and it is silent while the sound is
+ * muted or the music is switched off.
+ */
+export function setMusic(id: TrackId | null): void {
+  wanted = id
+  if (playing && playing.track.id !== id) stop()
+  if (id && audible()) start()
   else stop()
+}
+
+/**
+ * How the fight's music gives way to a blow (like a side-chained compressor): at the sound it drops to `dip` of its volume in a few
+ * milliseconds, stays there for `hold` seconds, and comes back over `release`. `delay` is for a sound whose thud comes after a swing.
+ */
+export interface Dip {
+  dip: number
+  delay: number
+  hold: number
+  release: number
+}
+export const IMPACTS: Partial<Record<Sound, Dip>> = {
+  hit: { dip: 0.3, delay: 0, hold: 0.1, release: 0.18 },
+  kick: { dip: 0.25, delay: 0.08, hold: 0.12, release: 0.22 },
+  crit: { dip: 0.2, delay: 0, hold: 0.14, release: 0.25 },
+  super: { dip: 0.15, delay: 0.02, hold: 0.3, release: 0.4 },
+  block: { dip: 0.45, delay: 0, hold: 0.06, release: 0.15 },
+  stumble: { dip: 0.5, delay: 0, hold: 0.08, release: 0.2 },
+}
+
+function duckForBlow(sound: Sound): void {
+  const p = playing
+  const d = IMPACTS[sound]
+  if (!p || !d || p.track.id === 'menu') return
+  const g = p.side.gain
+  const t = p.c.currentTime + d.delay
+  g.cancelScheduledValues(t)
+  g.setValueAtTime(g.value, t)
+  g.linearRampToValueAtTime(d.dip, t + 0.012)
+  g.setTargetAtTime(1, t + 0.012 + d.hold, d.release / 3)
+}
+onSound(duckForBlow)
+
+/** How far the music is turned down for a blow just now: 1 = not at all (for checking). */
+export const dipLevel = (): number => playing?.side.gain.value ?? 1
+
+/** Which theme is sounding now (null: none, or it is fading out). */
+export const currentTrack = (): TrackId | null => playing?.track.id ?? null
+
+/** Pauses the fight's music by turning it down (and back up): it does not stop. */
+export function setMusicDuck(on: boolean): void {
+  ducked = on
+  const p = playing
+  if (!p) return
+  const now = p.c.currentTime
+  p.master.gain.cancelScheduledValues(now)
+  p.master.gain.setValueAtTime(Math.max(p.master.gain.value, 0.0001), now)
+  p.master.gain.exponentialRampToValueAtTime(levelOf(p.track), now + 0.25)
 }
 
 /** The music may play: nothing is muted and the music is not switched off in the options. */

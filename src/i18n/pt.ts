@@ -35,7 +35,7 @@ export const pt = {
     soon: 'em breve',
     comingSoon: '{{label}} chega em breve.',
   },
-  options: { title: 'Opções', language: 'Idioma', sound: 'Som', effects: 'Efeitos sonoros', music: 'Música', on: 'Ligado', off: 'Desligado', languageBlurb: 'O idioma do jogo. Ele fica salvo.' },
+  options: { title: 'Opções', language: 'Idioma', sound: 'Som', effects: 'Efeitos sonoros', music: 'Música', on: 'Ligado', off: 'Desligado', soundtrack: "Trilha sonora", auto: "Do adversário", languageBlurb: 'O idioma do jogo. Ele fica salvo.' },
   about: {
     title: 'Sobre',
     intro: 'A cada rodada, os dois lutadores escolhem em segredo uma zona para <b>atacar</b> e uma zona para <b>defender</b>: cabeça, corpo ou pernas. Defenda a zona que o adversário ataca e você não sofre nada. Quem ficar primeiro sem saúde perde.',

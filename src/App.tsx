@@ -1,9 +1,11 @@
 import { useEffect } from 'react'
-import { setMusic } from './audio/music'
+import { setMusic, setMusicDuck } from './audio/music'
 import { bindKeys } from './input'
 import { loadArenas } from './state/arenas'
 import { timelineOf } from './timing'
 import { useGame } from './state/game'
+import { useSettings } from './state/settings'
+import { fightTrack } from './state/soundtrack'
 import { Arena } from './ui/Arena'
 import { Dock } from './ui/Controls'
 import { Hud } from './ui/Hud'
@@ -23,9 +25,16 @@ export default function App() {
 
   useEffect(bindKeys, [])
   useEffect(() => void loadArenas(), [])
-  // the theme of the menus plays while no fight is going on
+  // the theme of the menus plays while no fight is going on, the theme of the fight while one is (quieter when it is paused)
   const alive = useCalm()
-  useEffect(() => setMusic(alive), [alive])
+  const fighting = phase === 'choose' || phase === 'reveal'
+  const themeOf = useGame((s) => s.themeOf)
+  const soundtrack = useSettings((s) => s.soundtrack)
+  // a soundtrack chosen in the options is heard at once, while the options are open (over the menu, or over the paused fight)
+  const previewOf = useGame((s) => (s.phase === 'options' || (s.paused && s.pauseSettings) ? s.previewOf : null))
+  const track = previewOf ?? (alive ? 'menu' : fighting ? fightTrack(soundtrack, themeOf) : null)
+  useEffect(() => setMusic(track), [track])
+  useEffect(() => setMusicDuck(paused && !previewOf), [paused, previewOf])
 
   useEffect(() => {
     if (phase !== 'reveal' || !last || paused) return

@@ -91,6 +91,8 @@ export function handleKey(code: string): boolean {
       if (code === 'Escape' || code === 'KeyP') return g.closeSettings(), true
       if (code === 'ArrowUp' || code === 'KeyW') return g.moveOptions(-1), true
       if (code === 'ArrowDown' || code === 'KeyS') return g.moveOptions(1), true
+      if (code === 'ArrowLeft' || code === 'KeyA') return g.stepOptions(-1), true
+      if (code === 'ArrowRight' || code === 'KeyD') return g.stepOptions(1), true
       if (go) return g.chooseOptions(), true
       return false
     }
@@ -118,6 +120,8 @@ export function handleKey(code: string): boolean {
       if (code === 'Escape') return g.toMenu(), true
       if (code === 'ArrowUp' || code === 'KeyW') return g.moveOptions(-1), true
       if (code === 'ArrowDown' || code === 'KeyS') return g.moveOptions(1), true
+      if (code === 'ArrowLeft' || code === 'KeyA') return g.stepOptions(-1), true
+      if (code === 'ArrowRight' || code === 'KeyD') return g.stepOptions(1), true
       if (!go) return false
       g.chooseOptions()
       return true

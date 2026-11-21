@@ -35,7 +35,7 @@ export const hu = {
     soon: 'hamarosan',
     comingSoon: '„{{label}}” hamarosan érkezik.',
   },
-  options: { title: 'Beállítások', language: 'Nyelv', sound: 'Hang', effects: 'Hanghatások', music: 'Zene', on: 'Be', off: 'Ki', languageBlurb: 'A játék nyelve. Megjegyzi a játék.' },
+  options: { title: 'Beállítások', language: 'Nyelv', sound: 'Hang', effects: 'Hanghatások', music: 'Zene', on: 'Be', off: 'Ki', soundtrack: "Betétzene", auto: "Az ellenfélé", languageBlurb: 'A játék nyelve. Megjegyzi a játék.' },
   about: {
     title: 'Névjegy',
     intro: 'Minden körben mindkét harcos titokban kiválaszt egy zónát, amelyet <b>üt</b>, és egyet, amelyet <b>véd</b>: fej, test vagy láb. Védd azt a zónát, amelyet az ellenfeled üt, és semmit sem szenvedsz el. Az veszít, akinek előbb elfogy az élete.',

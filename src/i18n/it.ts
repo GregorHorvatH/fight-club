@@ -35,7 +35,7 @@ export const it = {
     soon: 'presto',
     comingSoon: '«{{label}}» arriverà presto.',
   },
-  options: { title: 'Opzioni', language: 'Lingua', sound: 'Audio', effects: 'Effetti sonori', music: 'Musica', on: 'Attivo', off: 'Disattivato', languageBlurb: 'La lingua del gioco. Viene ricordata.' },
+  options: { title: 'Opzioni', language: 'Lingua', sound: 'Audio', effects: 'Effetti sonori', music: 'Musica', on: 'Attivo', off: 'Disattivato', soundtrack: "Colonna sonora", auto: "Dell’avversario", languageBlurb: 'La lingua del gioco. Viene ricordata.' },
   about: {
     title: 'Informazioni',
     intro: 'A ogni round, i due combattenti scelgono in segreto una zona da <b>colpire</b> e una zona da <b>proteggere</b>: testa, corpo o gambe. Proteggi la zona che l’avversario colpisce e non subisci nulla. Perde chi per primo resta senza salute.',

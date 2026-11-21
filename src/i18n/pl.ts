@@ -35,7 +35,7 @@ export const pl = {
     soon: 'wkrótce',
     comingSoon: '„{{label}}” pojawi się wkrótce.',
   },
-  options: { title: 'Opcje', language: 'Język', sound: 'Dźwięk', effects: 'Efekty dźwiękowe', music: 'Muzyka', on: 'Włączone', off: 'Wyłączone', languageBlurb: 'Język gry. Zostaje zapamiętany.' },
+  options: { title: 'Opcje', language: 'Język', sound: 'Dźwięk', effects: 'Efekty dźwiękowe', music: 'Muzyka', on: 'Włączone', off: 'Wyłączone', soundtrack: "Ścieżka dźwiękowa", auto: "Przeciwnika", languageBlurb: 'Język gry. Zostaje zapamiętany.' },
   about: {
     title: 'O grze',
     intro: 'W każdej rundzie obaj wojownicy potajemnie wybierają strefę do <b>uderzenia</b> i strefę do <b>obrony</b>: głowę, tułów lub nogi. Zasłoń strefę, w którą uderza przeciwnik, a nie stracisz nic. Przegrywa ten, komu pierwszemu skończy się zdrowie.',

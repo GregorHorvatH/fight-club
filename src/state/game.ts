@@ -8,6 +8,7 @@ import { useUnlocks } from './unlocks'
 import { fighterOf, isUnlocked, rivalOf, slotFighter, SLOTS, FIGHTERS, type FighterId } from './roster'
 import { LANGUAGES } from '../i18n'
 import { TOUCH } from './touch'
+import { stepSoundtrack } from './soundtrack'
 import { warmModel } from './modelFiles'
 import { useSettings, type Mode } from './settings'
 
@@ -18,8 +19,10 @@ export type Phase = 'menu' | 'about' | 'options' | 'setup' | 'select' | 'ladder'
 const ALL_PAUSE_ITEMS = ['continue', 'again', 'settings', 'controls', 'menu'] as const
 export type PauseItem = (typeof ALL_PAUSE_ITEMS)[number]
 /** The items of the pause window: on a phone without the one that shows the keys (there is no keyboard). */
-/** The switches at the top of the options (the sound effects, the music): the languages come after them. */
-export const OPTION_SWITCHES = 2
+/** The rows at the top of the options (the sound effects, the music, the soundtrack of the fights): the languages come after them. */
+export const OPTION_SWITCHES = 3
+/** The row of the soundtrack in the options (after the sound effects and the music). */
+export const SOUNDTRACK_ROW = 2
 
 export const PAUSE_ITEMS: readonly PauseItem[] = TOUCH ? ALL_PAUSE_ITEMS.filter((i) => i !== 'controls') : ALL_PAUSE_ITEMS
 
@@ -150,8 +153,14 @@ interface Game {
   pointEnd: (item: EndItem) => void
   /** choose the item under the cursor (or `item`): fight again, or back to the main menu */
   chooseEnd: (item?: EndItem) => void
-  /** from the menu to the options (the language) */
+  /** from the menu to the options */
   openOptions: () => void
+  /** whose soundtrack plays in the fight now (the opponent's; between two players, one of them, by chance: set when the match begins) */
+  themeOf: FighterId
+  /** a soundtrack chosen in the options is being heard (the menu's music gives way to it) */
+  previewOf: FighterId | null
+  /** the left and right keys on the row of the soundtrack: the one before or after it */
+  stepOptions: (dir: number) => void
   /** the item of the options the cursor is on: the sound effects, the music, a language, or (the last) Back */
   optionsCursor: number
   moveOptions: (step: number) => void
@@ -272,7 +281,7 @@ export const useGame = create<Game>((set, get) => {
     pauseControls: false,
     closeControls: () => set({ pauseControls: false }),
     pauseSettings: false,
-    closeSettings: () => set({ pauseSettings: false }),
+    closeSettings: () => set({ pauseSettings: false, previewOf: null }),
 
     movePause: (step) => {
       if (!get().paused) return
@@ -290,7 +299,7 @@ export const useGame = create<Game>((set, get) => {
       play('select')
       if (item === 'continue') get().resume()
       else if (item === 'again') get().restartRound()
-      else if (item === 'settings') set({ pauseSettings: true, optionsCursor: OPTION_SWITCHES + Math.max(0, LANGUAGES.findIndex((l) => l.id === useSettings.getState().language)) })
+      else if (item === 'settings') set({ pauseSettings: true, previewOf: null, optionsCursor: OPTION_SWITCHES + Math.max(0, LANGUAGES.findIndex((l) => l.id === useSettings.getState().language)) })
       else if (item === 'controls') set({ pauseControls: true })
       else get().toMenu()
     },
@@ -449,7 +458,17 @@ export const useGame = create<Game>((set, get) => {
     },
 
     optionsCursor: 0,
-    openOptions: () => set({ phase: 'options', optionsCursor: OPTION_SWITCHES + Math.max(0, LANGUAGES.findIndex((l) => l.id === useSettings.getState().language)) }),
+    themeOf: 'amy',
+    previewOf: null,
+    stepOptions: (dir) => {
+      if (!optionsOpen() || get().optionsCursor !== SOUNDTRACK_ROW) return
+      play('select')
+      const { soundtrack, setSoundtrack } = useSettings.getState()
+      const next = stepSoundtrack(soundtrack, dir)
+      setSoundtrack(next)
+      set({ previewOf: next === 'auto' ? null : next })
+    },
+    openOptions: () => set({ phase: 'options', previewOf: null, optionsCursor: OPTION_SWITCHES + Math.max(0, LANGUAGES.findIndex((l) => l.id === useSettings.getState().language)) }),
     moveOptions: (step) => {
       if (!optionsOpen()) return
       const n = OPTION_SWITCHES + LANGUAGES.length + 1 // the switches, the languages, then Back
@@ -464,6 +483,7 @@ export const useGame = create<Game>((set, get) => {
       const settings = useSettings.getState()
       if (i === 0) settings.toggleEffects()
       else if (i === 1) settings.toggleMusic()
+      else if (i === SOUNDTRACK_ROW) return get().stepOptions(1)
       else if (i >= OPTION_SWITCHES + LANGUAGES.length) return get().phase === 'options' ? get().toMenu() : get().closeSettings()
       else settings.setLanguage(LANGUAGES[i - OPTION_SWITCHES]!.id)
       play('select') // (heard when the effects are on: after switching them on, or while they were on)
@@ -476,7 +496,10 @@ export const useGame = create<Game>((set, get) => {
       stopSounds()
       const { mode, difficulty } = useSettings.getState()
       const t = get().tournament
-      set({ phase: 'choose', mode, paused: false, match: createMatch(t ? difficultyAt(t.stage, t.ladder.length) : difficulty), choice: fresh(), last: null, matchId: get().matchId + 1 })
+      // whose soundtrack plays: the opponent's; between two players, one of the two by chance
+      const { fighters } = get()
+      const themeOf = mode === 'duo' && Math.random() < 0.5 ? fighters.player : fighters.enemy
+      set({ phase: 'choose', mode, paused: false, themeOf, match: createMatch(t ? difficultyAt(t.stage, t.ladder.length) : difficulty), choice: fresh(), last: null, matchId: get().matchId + 1 })
     },
 
     pickAttack: (side, zone, weapon) => {

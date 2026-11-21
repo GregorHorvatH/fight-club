@@ -14,6 +14,7 @@ const { useSettings } = await import('../src/state/settings')
 const { MENU, useMenu } = await import('../src/state/menu')
 const roster = await import('../src/state/roster')
 const { useUnlocks } = await import('../src/state/unlocks')
+const { soundtrackChoices, fightTrack, stepSoundtrack, isSoundtrack } = await import('../src/state/soundtrack')
 const { STAGES, difficultyAt, ladderFor } = await import('../src/state/tournament')
 const { ZONES } = await import('../src/sim')
 const { IDLE_MS, stepText, idleHint, stepOf } = await import('../src/ui/steps')
@@ -425,8 +426,8 @@ describe('the pause', () => {
     expect(g().paused).toBe(true)
     press('KeyE') // nothing else does anything meanwhile
     expect(g().choice.player.attack).toBeNull()
-    expect(g().optionsCursor).toBe(2) // on the language that is on (English), below the two switches
-    press('ArrowUp', 'ArrowUp', 'Enter') // the sound effects
+    expect(g().optionsCursor).toBe(3) // on the language that is on (English), below the three rows
+    press('ArrowUp', 'ArrowUp', 'ArrowUp', 'Enter') // the sound effects
     expect(useSettings.getState().effectsOff).toBe(true)
     press('ArrowDown', 'Enter') // the music
     expect(useSettings.getState().musicOff).toBe(true)
@@ -435,7 +436,7 @@ describe('the pause', () => {
     expect(g().pauseSettings).toBe(false)
     expect(g().paused).toBe(true)
     expect(g().pauseItem).toBe('settings')
-    press('Enter', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'Enter') // opens again, and Back (the top wraps round to it) leaves the settings, not the fight
+    press('Enter', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'Enter') // opens again, and Back (the top wraps round to it) leaves the settings, not the fight
     expect(g().pauseSettings).toBe(false)
     expect(g().paused).toBe(true)
     expect(g().phase).toBe('choose')
@@ -978,33 +979,35 @@ describe('going back to the main menu from a fight', () => {
 
 describe('the options: the sound and the language', () => {
   const LANGUAGES = ['en', 'de', 'fr', 'es', 'uk', 'pt', 'pl', 'it', 'hu']
-  const SWITCHES = 2 // the sound effects, the music: the languages come after them
+  const SWITCHES = 3 // the sound effects, the music, the soundtrack: the languages come after them
   beforeEach(() => {
-    useSettings.setState({ muted: false, effectsOff: false, musicOff: false })
+    useSettings.setState({ muted: false, effectsOff: false, musicOff: false, soundtrack: 'auto' })
     useSettings.getState().setLanguage('en')
     useGame.getState().toMenu()
     useMenu.setState({ cursor: 'options', soon: null })
     handleKey('Enter')
   })
   afterAll(() => {
-    useSettings.setState({ muted: false, effectsOff: false, musicOff: false })
+    useSettings.setState({ muted: false, effectsOff: false, musicOff: false, soundtrack: 'auto' })
     useSettings.getState().setLanguage('en')
   })
 
-  it('is the two switches, the languages and Back; the cursor starts on the current language', () => {
+  it('is the three rows, the languages and Back; the cursor starts on the current language', () => {
     expect(useGame.getState().phase).toBe('options')
     expect(useGame.getState().optionsCursor).toBe(SWITCHES)
     handleKey('ArrowDown')
     expect(useGame.getState().optionsCursor).toBe(SWITCHES + 1)
     handleKey('ArrowUp')
-    handleKey('ArrowUp') // the switches are above the languages
+    handleKey('ArrowUp') // the rows are above the languages
     expect(useGame.getState().optionsCursor).toBe(SWITCHES - 1)
+    handleKey('ArrowUp')
     handleKey('ArrowUp')
     handleKey('ArrowUp') // wraps around: Back is the last
     expect(useGame.getState().optionsCursor).toBe(SWITCHES + LANGUAGES.length)
   })
 
   it('the sound effects and the music are switched on and off apart from each other, and remembered', () => {
+    handleKey('ArrowUp')
     handleKey('ArrowUp')
     handleKey('ArrowUp') // the effects
     expect(useGame.getState().optionsCursor).toBe(0)
@@ -1021,6 +1024,34 @@ describe('the options: the sound and the language', () => {
     expect(useSettings.getState().effectsOff).toBe(false)
     expect(useGame.getState().phase).toBe('options') // it stays on the screen
     expect(useSettings.getState().muted).toBe(false) // (the M key is a switch of its own: everything)
+  })
+
+  it('the soundtrack goes to the next one on Enter, and either way on the left and right keys; the new one is heard at once', () => {
+    const g = () => useGame.getState()
+    const all = soundtrackChoices() // "auto", then the fighters that can be chosen
+    expect(all[0]).toBe('auto')
+    expect(all.slice(1, 3)).toEqual(['james', 'amy']) // (the starters first)
+    handleKey('ArrowUp') // the soundtrack
+    expect(g().optionsCursor).toBe(2)
+    expect(useSettings.getState().soundtrack).toBe('auto')
+    handleKey('ArrowRight')
+    expect(useSettings.getState().soundtrack).toBe(all[1])
+    expect(g().previewOf).toBe(all[1])
+    handleKey('Enter')
+    expect(useSettings.getState().soundtrack).toBe(all[2])
+    expect(g().previewOf).toBe(all[2])
+    handleKey('ArrowLeft')
+    handleKey('ArrowLeft')
+    expect(useSettings.getState().soundtrack).toBe('auto')
+    expect(g().previewOf).toBeNull() // (auto is not a soundtrack to hear: the menu's music goes on)
+    handleKey('ArrowLeft') // round the list the other way
+    expect(useSettings.getState().soundtrack).toBe(all[all.length - 1])
+    handleKey('ArrowRight')
+    expect(useSettings.getState().soundtrack).toBe('auto')
+    handleKey('ArrowDown') // the arrows do nothing to the other rows
+    handleKey('ArrowRight')
+    expect(useSettings.getState().soundtrack).toBe('auto')
+    expect(g().phase).toBe('options')
   })
 
   it('Enter on a language changes the language at once, and it is remembered in the settings', () => {
@@ -1043,10 +1074,7 @@ describe('the options: the sound and the language', () => {
     useMenu.setState({ cursor: 'options', soon: null })
     handleKey('Enter')
     expect(useGame.getState().optionsCursor).toBe(SWITCHES + 1)
-    handleKey('ArrowUp')
-    handleKey('ArrowUp')
-    handleKey('ArrowUp')
-    handleKey('ArrowUp') // Back (the top wraps round to it)
+    for (let i = 0; i < 5; i++) handleKey('ArrowUp') // up over the rows and round to Back
     handleKey('Enter')
     expect(useGame.getState().phase).toBe('menu')
   })
@@ -1141,5 +1169,53 @@ describe('P pauses (Esc leaves the full screen of a browser)', () => {
     press('KeyP') // the second player's turn: a strike at the head, not a pause
     expect(useGame.getState().paused).toBe(false)
     expect(useGame.getState().choice.enemy.attack).toBe('head')
+  })
+})
+
+describe('whose soundtrack plays in the fight', () => {
+  beforeEach(() => {
+    useSettings.setState({ mode: 'solo', soundtrack: 'auto' })
+    useGame.getState().toMenu()
+  })
+  afterAll(() => useSettings.setState({ mode: 'solo', soundtrack: 'auto' }))
+
+  const begin = (mode: 'solo' | 'duo', player: string, enemy: string): void => {
+    useSettings.setState({ mode })
+    useGame.setState({ fighters: { player, enemy } as never })
+    useGame.getState().start()
+  }
+
+  it('is the soundtrack of the enemy, against the machine', () => {
+    begin('solo', 'james', 'brute')
+    expect(useGame.getState().themeOf).toBe('brute')
+    expect(fightTrack('auto', useGame.getState().themeOf)).toBe('brute')
+  })
+
+  it('is one of the two, by chance, between two players: both come up, and it stays the same through the match', () => {
+    const seen = new Set<string>()
+    for (let i = 0; i < 40; i++) {
+      begin('duo', 'lola', 'swat')
+      seen.add(useGame.getState().themeOf)
+    }
+    expect([...seen].sort()).toEqual(['lola', 'swat'])
+    begin('duo', 'lola', 'swat')
+    const theme = useGame.getState().themeOf
+    useGame.getState().pickAttack('player', 'head')
+    expect(useGame.getState().themeOf).toBe(theme)
+  })
+
+  it('is the one chosen in the options when there is one (and the enemy’s when it is "auto", or the chosen fighter is not there to choose)', () => {
+    expect(fightTrack('amy', 'brute')).toBe('amy') // a starter
+    expect(fightTrack('auto', 'brute')).toBe('brute')
+    expect(isSoundtrack('auto') && isSoundtrack('exo_red')).toBe(true)
+    expect(isSoundtrack('nobody')).toBe(false)
+    expect(isSoundtrack(7)).toBe(false)
+  })
+
+  it('goes round the soundtracks that can be chosen, from "auto" and back', () => {
+    const all = soundtrackChoices()
+    expect(stepSoundtrack('auto', 1)).toBe(all[1])
+    expect(stepSoundtrack('auto', -1)).toBe(all[all.length - 1])
+    expect(stepSoundtrack(all[all.length - 1]!, 1)).toBe('auto')
   })
 })

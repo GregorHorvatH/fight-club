@@ -42,7 +42,7 @@ export const en = {
     soon: 'soon',
     comingSoon: '{{label}} is coming soon.',
   },
-  options: { title: 'Options', language: 'Language', sound: 'Sound', effects: 'Sound effects', music: 'Music', on: 'On', off: 'Off', languageBlurb: 'The language of the game. It is remembered.' },
+  options: { title: 'Options', language: 'Language', sound: 'Sound', effects: 'Sound effects', music: 'Music', on: 'On', off: 'Off', soundtrack: "Soundtrack", auto: "Opponent's", languageBlurb: 'The language of the game. It is remembered.' },
   about: {
     title: 'About',
     intro: 'Every round, both fighters secretly pick a zone to <b>strike</b> and a zone to <b>guard</b> - head, body or legs. Guard the zone your opponent strikes and you take nothing. Whoever runs out of health first loses.',

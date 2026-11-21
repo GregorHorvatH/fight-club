@@ -148,9 +148,16 @@ export interface PlayOptions {
   pan?: number
 }
 
+/** Who wants to know when a sound is played (the music, which gives way to the blows): called with the sound and the clock of the context. */
+const listeners = new Set<(sound: Sound, now: number) => void>()
+export function onSound(listener: (sound: Sound, now: number) => void): void {
+  listeners.add(listener)
+}
+
 export function play(sound: Sound, options?: PlayOptions): void {
   const c = context(false)
   if (!c) return
+  for (const l of listeners) l(sound, c.currentTime)
   if (options && (options.gain !== undefined || options.pan !== undefined)) {
     const g = c.createGain()
     g.gain.value = options.gain ?? 1

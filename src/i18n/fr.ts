@@ -35,7 +35,7 @@ export const fr = {
     soon: 'bientôt',
     comingSoon: '{{label}} arrive bientôt.',
   },
-  options: { title: 'Options', language: 'Langue', sound: 'Son', effects: 'Effets sonores', music: 'Musique', on: 'Activé', off: 'Désactivé', languageBlurb: 'La langue du jeu. Elle est mémorisée.' },
+  options: { title: 'Options', language: 'Langue', sound: 'Son', effects: 'Effets sonores', music: 'Musique', on: 'Activé', off: 'Désactivé', soundtrack: "Bande-son", auto: "De l’adversaire", languageBlurb: 'La langue du jeu. Elle est mémorisée.' },
   about: {
     title: 'À propos',
     intro: 'À chaque round, les deux combattants choisissent en secret une zone à <b>frapper</b> et une zone à <b>protéger</b> : tête, corps ou jambes. Protégez la zone que votre adversaire frappe et vous ne subissez rien. Le premier à n’avoir plus de santé perd.',

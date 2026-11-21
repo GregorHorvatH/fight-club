@@ -35,7 +35,7 @@ export const de = {
     soon: 'bald',
     comingSoon: '{{label}} kommt bald.',
   },
-  options: { title: 'Optionen', language: 'Sprache', sound: 'Ton', effects: 'Soundeffekte', music: 'Musik', on: 'An', off: 'Aus', languageBlurb: 'Die Sprache des Spiels. Sie wird gespeichert.' },
+  options: { title: 'Optionen', language: 'Sprache', sound: 'Ton', effects: 'Soundeffekte', music: 'Musik', on: 'An', off: 'Aus', soundtrack: "Soundtrack", auto: "Des Gegners", languageBlurb: 'Die Sprache des Spiels. Sie wird gespeichert.' },
   about: {
     title: 'Über das Spiel',
     intro: 'In jeder Runde wählen beide Kämpfer heimlich eine Zone zum <b>Angreifen</b> und eine zum <b>Decken</b> – Kopf, Körper oder Beine. Deckst du die Zone, die dein Gegner angreift, nimmst du keinen Schaden. Wer zuerst keine Gesundheit mehr hat, verliert.',

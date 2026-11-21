@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { BPM, chordAt, LOOP_S, LOOP_STEPS, pulseAt, STEP_S } from '../src/audio/music'
+import { crushCurve, FIGHT_LOOP_S } from '../src/audio/fightTheme'
+import { FIGHTERS } from '../src/state/roster'
+import { BPM, chordAt, IMPACTS, LOOP_S, LOOP_STEPS, pulseAt, STEP_S, TRACKS } from '../src/audio/music'
 import { isCalm, waveFrom } from '../src/ui/ambience'
 
 describe('menu theme', () => {
@@ -56,5 +58,44 @@ describe('the wave', () => {
     expect(at(200)).toBeLessThan(at(240))
     expect(at(240)).toBeLessThanOrEqual(1)
     expect(at(231)).toBeLessThan(0.97) // (what this music has in its lows, typically)
+  })
+})
+
+describe('the themes', () => {
+  it('are two, each a whole number of bars that goes round', () => {
+    expect(Object.keys(TRACKS)).toEqual(['menu', 'james', ...FIGHTERS.filter((f) => f.id !== 'james').map((f) => f.id)])
+    for (const t of Object.values(TRACKS)) {
+      expect(t.steps % 16).toBe(0)
+      expect(t.stepS).toBeCloseTo(60 / t.bpm / 4, 10)
+      expect(t.volume).toBeGreaterThan(0)
+      expect(t.volume).toBeLessThanOrEqual(1)
+    }
+    expect(TRACKS.james.bpm).toBe(115)
+    expect(FIGHT_LOOP_S).toBeCloseTo(8 * 16 * (60 / 115 / 4), 10) // eight bars, about 17 seconds
+  })
+
+  it('has a saturation curve that stays in range, never goes down, and with steps has few levels', () => {
+    for (const k of [1.8, 3, 14]) {
+      const c = crushCurve(k)
+      expect(Math.max(...c)).toBeLessThanOrEqual(1)
+      expect(Math.min(...c)).toBeGreaterThanOrEqual(-1)
+      expect(c.every((v, i) => i === 0 || v >= c[i - 1]!)).toBe(true)
+    }
+    expect(new Set(crushCurve(3, 22)).size).toBeLessThanOrEqual(2 * 22 + 1)
+  })
+})
+
+describe('the music gives way to a blow', () => {
+  it('dips for the sounds of a blow, deeper and longer for the heavier ones, and not for the rest', () => {
+    for (const d of Object.values(IMPACTS)) {
+      expect(d.dip).toBeGreaterThan(0)
+      expect(d.dip).toBeLessThan(1)
+      expect(d.hold + d.release).toBeLessThan(1) // it is back before the next blow
+    }
+    expect(IMPACTS.super!.dip).toBeLessThan(IMPACTS.hit!.dip)
+    expect(IMPACTS.super!.hold).toBeGreaterThan(IMPACTS.hit!.hold)
+    expect(IMPACTS.crit!.dip).toBeLessThan(IMPACTS.hit!.dip)
+    expect(IMPACTS.block!.dip).toBeGreaterThan(IMPACTS.hit!.dip)
+    for (const quiet of ['select', 'bell', 'step', 'whoosh', 'win', 'lose'] as const) expect(IMPACTS[quiet]).toBeUndefined()
   })
 })

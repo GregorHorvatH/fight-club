@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { DIFFICULTIES, type Difficulty } from '../sim'
 import { detectLang, isLang, setLanguage, type Lang } from '../i18n'
+import { isSoundtrack, type Soundtrack } from './soundtrack'
 
 export type Mode = 'solo' | 'duo'
 export type View = '2d' | '3d'
@@ -12,6 +13,8 @@ interface Settings {
   effectsOff: boolean
   /** the music of the menus is switched off (in the options) */
   musicOff: boolean
+  /** the soundtrack of the fights: that of the opponent, or of the fighter chosen in the options */
+  soundtrack: Soundtrack
   difficulty: Difficulty
   /** solo: you against the enemy AI; duo: two players on one keyboard / screen */
   mode: Mode
@@ -23,6 +26,7 @@ interface Settings {
   toggleMute: () => void
   toggleEffects: () => void
   toggleMusic: () => void
+  setSoundtrack: (s: Soundtrack) => void
   setDifficulty: (d: Difficulty) => void
   setMode: (m: Mode) => void
   toggleView: () => void
@@ -33,7 +37,7 @@ interface Settings {
 
 const KEY = 'fightclub.settings'
 
-type Saved = Pick<Settings, 'muted' | 'effectsOff' | 'musicOff' | 'difficulty' | 'mode' | 'view' | 'arena' | 'language'>
+type Saved = Pick<Settings, 'muted' | 'effectsOff' | 'musicOff' | 'soundtrack' | 'difficulty' | 'mode' | 'view' | 'arena' | 'language'>
 
 function load(): Saved {
   try {
@@ -42,6 +46,7 @@ function load(): Saved {
       muted: v?.muted === true,
       effectsOff: v?.effectsOff === true,
       musicOff: v?.musicOff === true,
+      soundtrack: isSoundtrack(v?.soundtrack) ? v.soundtrack : 'auto',
       difficulty: DIFFICULTIES.find((d) => d === v?.difficulty) ?? 'normal',
       mode: v?.mode === 'duo' ? 'duo' : 'solo',
       view: v?.view === '3d' ? '3d' : '2d',
@@ -49,7 +54,7 @@ function load(): Saved {
       language: isLang(v?.language) ? v.language : detectLang(),
     }
   } catch {
-    return { muted: false, effectsOff: false, musicOff: false, difficulty: 'normal', mode: 'solo', view: '2d', arena: '', language: detectLang() } // storage can be blocked (private window)
+    return { muted: false, effectsOff: false, musicOff: false, soundtrack: 'auto', difficulty: 'normal', mode: 'solo', view: '2d', arena: '', language: detectLang() } // storage can be blocked (private window)
   }
 }
 
@@ -59,9 +64,9 @@ setLanguage(initial.language) // the language of the interface is that of the se
 export const useSettings = create<Settings>((set, get) => {
   const change = (patch: Partial<Saved>) => {
     set(patch)
-    const { muted, effectsOff, musicOff, difficulty, mode, view, arena, language } = get()
+    const { muted, effectsOff, musicOff, soundtrack, difficulty, mode, view, arena, language } = get()
     try {
-      localStorage.setItem(KEY, JSON.stringify({ muted, effectsOff, musicOff, difficulty, mode, view, arena, language }))
+      localStorage.setItem(KEY, JSON.stringify({ muted, effectsOff, musicOff, soundtrack, difficulty, mode, view, arena, language }))
     } catch {
       /* not remembered: fine */
     }
@@ -71,6 +76,7 @@ export const useSettings = create<Settings>((set, get) => {
     toggleMute: () => change({ muted: !get().muted }),
     toggleEffects: () => change({ effectsOff: !get().effectsOff }),
     toggleMusic: () => change({ musicOff: !get().musicOff }),
+    setSoundtrack: (soundtrack) => change({ soundtrack }),
     setDifficulty: (difficulty) => change({ difficulty }),
     setMode: (mode) => change({ mode }),
     toggleView: () => change({ view: get().view === '2d' ? '3d' : '2d' }),
