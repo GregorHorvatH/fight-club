@@ -1,5 +1,5 @@
 export const de = {
-  common: { back: 'Zurück', start: 'Start', loading3d: '3D wird geladen…' },
+  common: { back: 'Zurück', start: 'Start', loading3d: '3D wird geladen…', loadingFighters: "Kämpfer werden geladen… {{percent}} %", modelsFailed: "Die 3D-Kämpfer konnten nicht geladen werden, es werden einfache Figuren gezeigt. Prüfe die Verbindung und lade die Seite neu." },
   keys: {
     choose: 'wählen',
     confirm: 'bestätigen',

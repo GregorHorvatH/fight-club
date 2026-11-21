@@ -2,6 +2,7 @@ import { useFrame, useLoader } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Color, MeshStandardMaterial, Quaternion, Vector3, type MeshBasicMaterial, type Object3D, type SkinnedMesh } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { useModelLoad } from '../state/modelLoad'
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { useGame } from '../state/game'
 import { fighterOf } from '../state/roster'
@@ -183,7 +184,8 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
   const phase = side === 'player' ? 0 : 2.1
   const character = fighterOf(useGame((s) => s.fighters[side]))
   const foeId = useGame((s) => s.fighters[side === 'player' ? 'enemy' : 'player'])
-  const gltf = useLoader(GLTFLoader, `${import.meta.env.BASE_URL}${character.model}`)
+  const url = `${import.meta.env.BASE_URL}${character.model}`
+  const gltf = useLoader(GLTFLoader, url, undefined, (e) => useModelLoad.getState().progress(url, e))
   const model = useMemo(() => buildModel(gltf.scene, TEAM[side], character.hide, character.id, character.height), [gltf, side, character])
   const bd = model.build
   // the opponent's blows and ours are worked out for the two builds: the opponent's is known once its model is loaded

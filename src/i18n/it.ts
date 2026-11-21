@@ -1,5 +1,5 @@
 export const it = {
-  common: { back: 'Indietro', start: 'Inizia', loading3d: 'Caricamento 3D…' },
+  common: { back: 'Indietro', start: 'Inizia', loading3d: 'Caricamento 3D…', loadingFighters: "Caricamento dei combattenti… {{percent}}%", modelsFailed: "Non è stato possibile caricare i combattenti 3D, quindi vengono mostrate figure semplici. Controlla la connessione e ricarica la pagina." },
   keys: {
     choose: 'scegli',
     confirm: 'conferma',

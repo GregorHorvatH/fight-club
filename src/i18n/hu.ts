@@ -1,5 +1,5 @@
 export const hu = {
-  common: { back: 'Vissza', start: 'Indítás', loading3d: '3D betöltése…' },
+  common: { back: 'Vissza', start: 'Indítás', loading3d: '3D betöltése…', loadingFighters: "Harcosok betöltése… {{percent}}%", modelsFailed: "A 3D harcosokat nem sikerült betölteni, ezért egyszerű figurákat látsz. Ellenőrizd a kapcsolatot, és töltsd újra az oldalt." },
   keys: {
     choose: 'választás',
     confirm: 'megerősítés',

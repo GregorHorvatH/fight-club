@@ -1,5 +1,5 @@
 export const es = {
-  common: { back: 'Atrás', start: 'Empezar', loading3d: 'Cargando 3D…' },
+  common: { back: 'Atrás', start: 'Empezar', loading3d: 'Cargando 3D…', loadingFighters: "Cargando luchadores… {{percent}} %", modelsFailed: "No se pudieron cargar los luchadores 3D, así que se muestran figuras simples. Revisa la conexión y recarga la página." },
   keys: {
     choose: 'elegir',
     confirm: 'confirmar',

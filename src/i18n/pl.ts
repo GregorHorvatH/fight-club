@@ -1,5 +1,5 @@
 export const pl = {
-  common: { back: 'Wstecz', start: 'Start', loading3d: 'Ładowanie 3D…' },
+  common: { back: 'Wstecz', start: 'Start', loading3d: 'Ładowanie 3D…', loadingFighters: "Wczytywanie zawodników… {{percent}}%", modelsFailed: "Nie udało się wczytać zawodników 3D, więc widać proste figurki. Sprawdź połączenie i odśwież stronę." },
   keys: {
     choose: 'wybierz',
     confirm: 'zatwierdź',

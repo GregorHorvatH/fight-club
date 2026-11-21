@@ -531,3 +531,20 @@ export const useGame = create<Game>((set, get) => {
     },
   }
 })
+
+// The 3D models are 1-4 MB each: as soon as the fighters are known their files are asked for, so that they are in the browser's cache
+// (or on their way) when the arena opens, e.g. while the player is still reading the ladder. A failed request is not a problem: the
+// arena asks again and says so if it fails too.
+const warmed = new Set<string>()
+function warmModels(ids: readonly FighterId[]): void {
+  if (typeof fetch !== 'function') return
+  for (const id of ids) {
+    const url = `${import.meta.env.BASE_URL}${fighterOf(id).model}`
+    if (warmed.has(url)) continue
+    warmed.add(url)
+    fetch(url, { priority: 'low' } as RequestInit).catch(() => warmed.delete(url))
+  }
+}
+useGame.subscribe((s, prev) => {
+  if (s.fighters !== prev.fighters && useSettings.getState().view === '3d') warmModels([s.fighters.player, s.fighters.enemy])
+})

@@ -1,5 +1,5 @@
 export const uk = {
-  common: { back: 'Назад', start: 'Почати', loading3d: 'Завантаження 3D…' },
+  common: { back: 'Назад', start: 'Почати', loading3d: 'Завантаження 3D…', loadingFighters: "Завантаження бійців… {{percent}}%", modelsFailed: "Не вдалося завантажити 3D-бійців, тому показано прості фігурки. Перевірте з'єднання й перезавантажте сторінку." },
   keys: {
     choose: 'вибрати',
     confirm: 'підтвердити',

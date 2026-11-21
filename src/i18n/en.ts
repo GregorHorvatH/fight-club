@@ -4,7 +4,7 @@
  * `<b>...</b>` in a text is bold (rendered with <Trans>). Names of fighters, of arenas and of super strikes are proper names: not here.
  */
 export const en = {
-  common: { back: 'Back', start: 'Start', loading3d: 'Loading 3D…' },
+  common: { back: 'Back', start: 'Start', loading3d: 'Loading 3D…', loadingFighters: "Loading fighters… {{percent}}%", modelsFailed: "The 3D fighters could not be loaded, so simple figures are shown. Check the connection and reload the page." },
   keys: {
     choose: 'choose',
     confirm: 'confirm',
