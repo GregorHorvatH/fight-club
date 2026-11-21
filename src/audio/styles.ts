@@ -22,11 +22,23 @@ export const JAMES_PROMPT =
 export const STYLES: Record<Exclude<FighterId, 'james'>, Style> = {
   amy: {
     prompt:
-      'Bright kawaii future-pop at 148 BPM for a cheerful teal-haired girl with bunny-ear tufts, bouncy plucked bass on the off-beats, sparkling bell arpeggios, a bubbly chiptune lead hopping through a major scale, crisp hand claps and shiny hi-hats, playful and sugary but with real energy, instrumental only, loopable.',
+      'Bright kawaii future-pop at 148 BPM for a cheerful teal-haired girl with bunny-ear tufts, bouncy plucked bass on the off-beats, sparkling bell arpeggios, a bubbly chiptune lead hopping through a major scale, crisp hand claps and shiny hi-hats, playful and sugary but with real energy, a one-minute arrangement with an intro groove, a verse, a big chorus, a quiet breakdown with a rising riser, a drop, a bridge, a final chorus and an outro that falls back onto the intro, instrumental only, loopable.',
     bpm: 148, root: 48, scale: MAJOR, prog: [0, 4, 5, 3], prog2: [0, 4, 5, 3], drums: 'four', kick: 'soft', snare: 'clap', hat: 'crisp', swing: 0,
     bass: 'pluck', bassPattern: 'offbeat', lead: 'chip', leadRhythm: 'busy', leadRoot: 72, arp: 'bell', pad: 'saw', extras: ['sparkle'],
-    drive: 0, crush: 0, reverb: 0.18, echo: 0.3, seed: 1101,
+    drive: 0, crush: 0, reverb: 0.18, echo: 0.3, seed: 1101, leadRhythmC: 'sync',
     level: 1.6,
+    // 36 bars at 148 bpm, a minute: the groove and the first lead are the loop the soundtrack began as (the first two sections)
+    form: [
+      { prog: [0, 4, 5, 3], lead: [null, null, 'hint', null], extras: false }, // the intro groove
+      { prog: [0, 4, 5, 3], lead: [0, 0, 1, 0], extras: true }, // the lead comes in
+      { prog: [5, 3, 0, 4], lead: [2, 2, 2, 1], extras: true }, // the verse: other chords, a new tune
+      { prog: [0, 4, 5, 3], lead: [0, 0, 0, 1], lift: 2, extras: true }, // the chorus: the first tune again, a third higher
+      { prog: [3, 0, 4, 5], lead: [2, null, 2, null], leadV: 0.7, drums: 'none', bass: false, extras: false, riser: true }, // the breakdown: no drums or bass, a riser into the drop
+      { prog: [0, 4, 5, 3], lead: [2, 2, 2, 1], lift: 2, extras: true }, // the drop
+      { prog: [3, 4, 5, 2], lead: [1, 1, 2, null], drums: 'light', extras: false }, // the bridge: lighter, other chords
+      { prog: [0, 4, 5, 3], lead: [0, 0, 0, 1], lift: 2, extras: true }, // the final chorus
+      { prog: [0, 4, 5, 3], lead: [0, null, null, null], drums: 'light', extras: false }, // the outro: it thins out and the loop begins again
+    ],
   },
   pete: {
     prompt:

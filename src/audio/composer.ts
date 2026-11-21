@@ -21,6 +21,30 @@ export type LeadRhythm = 'long' | 'busy' | 'sync' | 'sparse' | 'dotted'
 export type ArpKind = 'chip' | 'bell' | 'koto' | 'pluck'
 export type ExtraKind = 'clang' | 'gong' | 'siren' | 'riser' | 'stab' | 'tick' | 'sparkle' | 'anvil' | 'heartbeat' | 'taikoRoll'
 
+/** Which motif the lead plays in a bar: 0, 1 or 2 (the motifs of the style), "hint" (the first half of the first motif, quietly), or nothing. */
+export type LeadPick = 0 | 1 | 2 | 'hint' | null
+
+/** Four bars of the form of a soundtrack: their chords, and what plays in them. What is not said is as in the first section of a plain loop. */
+export interface Section {
+  /** the four chords, as degrees of the mode */
+  prog: readonly number[]
+  /** the lead of each of the four bars */
+  lead: readonly LeadPick[]
+  /** the lead goes this many degrees of the mode higher */
+  lift?: number
+  /** how loud the lead is (1 = as usual) */
+  leadV?: number
+  /** the drums: all of them, the kick only on the first and the third beat, or none (a breakdown) */
+  drums?: 'full' | 'light' | 'none'
+  bass?: boolean
+  arp?: boolean
+  pad?: boolean
+  /** the extras of the style are on (the clangs, the sparkles, the ticks and the drone) */
+  extras?: boolean
+  /** a riser in the last bar, leading into the next section */
+  riser?: boolean
+}
+
 export interface Style {
   /** the prompt this soundtrack was written from (what one would give to a music generator) */
   prompt: string
@@ -59,6 +83,13 @@ export interface Style {
   reverb: number
   echo: number
   seed: number
+  /** the rhythm of the third motif, when it should differ from the lead's (the bridge of a long form) */
+  leadRhythmC?: LeadRhythm
+  /**
+   * The form of a long soundtrack: sections of four bars, one after another, and the loop is as long as all of them. Without it the
+   * loop is eight bars: the groove (`prog`), then the same with the lead and the extras (`prog2`).
+   */
+  form?: readonly Section[]
   /** the volume of the soundtrack in the fight (1 = the loudness the soundtracks are mixed to) */
   level?: number
 }
@@ -221,33 +252,47 @@ export type Ev =
   | { t: 'drone'; midis: number[] }
   | { t: 'extra'; kind: ExtraKind; midi: number }
 
-const BARS = 8
-export const COMPOSED_STEPS = BARS * 16
+/** The sections of a style: its own form, or (a plain loop) the groove and then the groove with the lead and the extras. */
+export function formOf(s: Style): readonly Section[] {
+  if (s.form) return s.form
+  return [
+    { prog: s.prog, lead: [null, null, 'hint', null], extras: false },
+    { prog: s.prog2 ?? s.prog, lead: [0, 0, 1, 0], extras: true },
+  ]
+}
+/** How long the loop of a style is, in sixteenths. */
+export const stepsOf = (s: Style): number => formOf(s).length * 4 * 16
 export type Plan = Ev[][][] // [bar][sixteenth] -> events
 
 export function planOf(s: Style): Plan {
   const r = rng(s.seed)
+  const form = formOf(s)
+  const BARS = form.length * 4
   const plan: Plan = Array.from({ length: BARS }, () => Array.from({ length: 16 }, () => [] as Ev[]))
   const n = s.scale.length
   /** the MIDI note of degree `d` of the mode (any integer, it wraps round the octaves) above `base` */
   const pitch = (base: number, d: number): number => base + s.scale[((d % n) + n) % n]! + 12 * Math.floor(d / n)
   const kit = KITS[s.drums]
-  const motifs = [motifOf(s.leadRhythm, r, 0), motifOf(s.leadRhythm, r, 1)]
+  const motifs = [motifOf(s.leadRhythm, r, 0), motifOf(s.leadRhythm, r, 1), motifOf(s.leadRhythmC ?? s.leadRhythm, rng(s.seed + 77), 2)] // (the third has a generator of its own: the first two are what they were)
   const colour = s.colour ?? []
-  const prog2 = s.prog2 ?? s.prog
 
   for (let bar = 0; bar < BARS; bar++) {
     const kind = bar % 4
-    const deg = (bar < 4 ? s.prog : prog2)[kind]!
-    const layered = bar >= 4
+    const section = form[Math.floor(bar / 4)]!
+    const deg = section.prog[kind]!
+    const layered = section.extras === true
+    const drums = section.drums ?? 'full'
     const at = (step: number, e: Ev): void => void plan[bar]![step]!.push(e)
 
     // drums
-    for (const [st, v] of kit.k[kind]!) at(st, { t: 'kick', v })
-    for (const [st, v] of kit.s?.[kind] ?? []) at(st, { t: 'snare', v })
-    for (const [st, v] of kit.c?.[kind] ?? []) at(st, { t: 'clap', v })
-    for (const [st, v] of kit.rim?.[kind] ?? []) at(st, { t: 'rim', v })
-    for (const [st, v, f] of kit.t?.[kind] ?? []) at(st, { t: 'tom', v, f })
+    // (in a breakdown only the hats and the shaker go on; in a light section the kick is on the first and the third beat only)
+    if (drums !== 'none') {
+      for (const [st, v] of kit.k[kind]!) if (drums === 'full' || st === 0 || st === 8) at(st, { t: 'kick', v })
+      for (const [st, v] of kit.s?.[kind] ?? []) at(st, { t: 'snare', v })
+      for (const [st, v] of kit.c?.[kind] ?? []) at(st, { t: 'clap', v })
+      for (const [st, v] of kit.rim?.[kind] ?? []) at(st, { t: 'rim', v })
+      for (const [st, v, f] of kit.t?.[kind] ?? []) at(st, { t: 'tom', v, f })
+    }
     for (let i = 0; i < 16; i++) {
       if (kit.hats === 'eighths' && i % 2 === 0) at(i, { t: 'hat', v: i % 4 === 0 ? 1 : 0.65 })
       else if (kit.hats === 'sixteenths') at(i, { t: 'hat', v: i % 4 === 0 ? 0.9 : i % 2 === 0 ? 0.6 : 0.35 })
@@ -262,32 +307,36 @@ export function planOf(s: Style): Plan {
     const rootMidi = pitch(s.root, deg)
     const tone = (which: number): number =>
       which === 0 ? rootMidi : which === 1 ? pitch(s.root, deg + 4) : which === 2 ? rootMidi + 12 : which === 3 ? pitch(s.root, deg + 2) : which === 4 ? rootMidi + (colour[0] ?? 1) : rootMidi + (colour[1] ?? 6)
-    for (const [st, which, len] of bassVariant(BASS_PATTERNS[s.bassPattern], kind, colour)) {
+    for (const [st, which, len] of section.bass === false ? [] : bassVariant(BASS_PATTERNS[s.bassPattern], kind, colour)) {
       if (bar === BARS - 1 && st >= 14) continue // the loop falls back onto the first beat clean
       at(st, { t: 'bass', midi: tone(which), len })
     }
 
     // pad: the chord, once a bar
-    if (s.pad) at(0, { t: 'pad', midis: [pitch(s.leadRoot - 12, deg), pitch(s.leadRoot - 12, deg + 2), pitch(s.leadRoot - 12, deg + 4)] })
+    if (s.pad && section.pad !== false) at(0, { t: 'pad', midis: [pitch(s.leadRoot - 12, deg), pitch(s.leadRoot - 12, deg + 2), pitch(s.leadRoot - 12, deg + 4)] })
 
     // arpeggio: the chord's notes, sixteenth by sixteenth
-    if (s.arp) {
+    if (s.arp && section.arp !== false) {
       const tones = [pitch(s.leadRoot, deg), pitch(s.leadRoot, deg + 2), pitch(s.leadRoot, deg + 4), pitch(s.leadRoot, deg + 7)]
       const shape = [0, 1, 2, 3, 2, 1, 2, 1, 0, 1, 2, 3, 2, 3, 1, 2]
       for (let i = 0; i < 16; i++) at(i, { t: 'arp', midi: tones[shape[i]!]!, v: i % 4 === 0 ? 1 : 0.65 })
     }
 
-    // lead: from the second half (and a hint of it in the third bar)
-    if (layered || bar === 2) {
-      const m = motifs[bar === 6 ? 1 : 0]!
+    // lead: the motif the section gives this bar (a hint of the first one is the first half of it, quietly)
+    const pick = section.lead[kind] ?? null
+    if (pick !== null) {
+      const m = motifs[pick === 'hint' ? 0 : pick]!
       for (const [st, d, len] of m.notes) {
-        if (!layered && st >= 8) continue
-        at(st, { t: 'lead', midi: pitch(s.leadRoot, deg + d), len, v: layered ? 1 : 0.6 })
+        if (pick === 'hint' && st >= 8) continue
+        at(st, { t: 'lead', midi: pitch(s.leadRoot, deg + d + (section.lift ?? 0)), len, v: pick === 'hint' ? 0.6 : (section.leadV ?? 1) })
       }
     }
 
     // drone: two notes, every other bar of the second half
     if (s.drone && layered && bar % 2 === 0) at(0, { t: 'drone', midis: s.drone.map((x) => s.root + 12 + x) })
+
+    // a riser into the next section, when the section asks for one
+    if (section.riser && kind === 3 && !s.extras.includes('riser')) at(8, { t: 'extra', kind: 'riser', midi: 0 })
 
     // extras
     for (const kindOf of s.extras) {
@@ -329,7 +378,7 @@ const planFor = (s: Style): Plan => {
 
 /** Writes the sixteenth number `step` (counted from the start of the loop, any whole number) of a style into the context, to sound at `at`. */
 export function scheduleStyled(style: Style, c: Ctx, bus: Bus, step: number, at: number, mark?: Mark): void {
-  const s = step % COMPOSED_STEPS
+  const s = step % stepsOf(style)
   const bar = Math.floor(s / 16)
   const i = s % 16
   const stepS = 60 / style.bpm / 4

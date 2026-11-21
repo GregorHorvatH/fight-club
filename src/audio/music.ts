@@ -6,7 +6,7 @@
  * rendered to a file (scripts/render-menu-theme.mjs) or played live by the scheduler below.
  */
 import { audioContext, onSound, type Sound } from './synth'
-import { COMPOSED_STEPS, makeStyleBus, scheduleStyled } from './composer'
+import { makeStyleBus, scheduleStyled, stepsOf } from './composer'
 import { FIGHT_BPM, FIGHT_STEP_S, FIGHT_STEPS, makeFightBus, scheduleFightStep } from './fightTheme'
 import { STYLES } from './styles'
 import { FIGHTERS, type FighterId } from '../state/roster'
@@ -153,7 +153,7 @@ const styled = (id: Exclude<FighterId, 'james'>): Track => {
     id,
     bpm: style.bpm,
     stepS: 60 / style.bpm / 4,
-    steps: COMPOSED_STEPS,
+    steps: stepsOf(style),
     volume: FIGHT_VOLUME * (style.level ?? 1),
     schedule: (c, bus, step, at, mark) => scheduleStyled(style, c, bus, step, at, mark),
     makeBus: (c, master) => makeStyleBus(style, c, master),

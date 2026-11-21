@@ -14,7 +14,7 @@ In a fight the soundtrack of the **opponent** plays (against the machine, in the
 
 *Looks:* teal bob hair with two bunny-ear tufts, a pink top (cute and cheerful).
 
-> Bright kawaii future-pop at 148 BPM for a cheerful teal-haired girl with bunny-ear tufts, bouncy plucked bass on the off-beats, sparkling bell arpeggios, a bubbly chiptune lead hopping through a major scale, crisp hand claps and shiny hi-hats, playful and sugary but with real energy, instrumental only, loopable.
+> Bright kawaii future-pop at 148 BPM for a cheerful teal-haired girl with bunny-ear tufts, bouncy plucked bass on the off-beats, sparkling bell arpeggios, a bubbly chiptune lead hopping through a major scale, crisp hand claps and shiny hi-hats, playful and sugary but with real energy, a one-minute arrangement with an intro groove, a verse, a big chorus, a quiet breakdown with a rising riser, a drop, a bridge, a final chorus and an outro that falls back onto the intro, instrumental only, loopable.
 
 ## Pete
 
