@@ -289,13 +289,19 @@ function stop(): void {
 /** Asks for the menu theme to be playing (or not): it fades in and out, and it is silent while the sound is muted. */
 export function setMusic(on: boolean): void {
   wanted = on
-  if (on && !useSettings.getState().muted) start()
+  if (on && audible()) start()
   else stop()
 }
 
+/** The music may play: nothing is muted and the music is not switched off in the options. */
+const audible = (): boolean => {
+  const { muted, musicOff } = useSettings.getState()
+  return !muted && !musicOff
+}
+
 useSettings.subscribe((s, prev) => {
-  if (s.muted === prev.muted) return
-  if (s.muted) stop()
+  if (s.muted === prev.muted && s.musicOff === prev.musicOff) return
+  if (s.muted || s.musicOff) stop()
   else start()
 })
 

@@ -449,3 +449,14 @@ kbd {
 @media (hover: none) and (pointer: coarse) {
   kbd, .screen kbd, .keys { display: none !important; }
 }
+
+/* a long list (the options: two switches, nine languages, Back): the rows are lower so that more of them are in view */
+.screen.dense { padding-top: 18px; padding-bottom: 14px; }
+.screen.dense h1 { margin-bottom: 4px; font-size: clamp(1.7rem, 6vw, 2.2rem); }
+.screen.dense h2 { margin: 8px 0 4px; font-size: .85rem; }
+.screen.dense .items { gap: 3px; margin-bottom: 2px; }
+.screen.dense .item { padding: 7px 18px; font-size: 1rem; }
+@media (max-height: 560px) {
+  .screen.dense .item { padding: 4px 14px; font-size: .9rem; }
+  .screen.dense h2 { margin: 4px 0 2px; }
+}

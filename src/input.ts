@@ -86,6 +86,14 @@ export function handleKey(code: string): boolean {
   const go = code === 'Enter' || code === 'Space'
   if (g.paused) {
     // the pause window is a list like the main menu: up / down move the cursor, Enter / Space choose, Esc goes on; nothing else does anything
+    if (g.pauseSettings) {
+      // the settings over the paused fight: a list like the options of the menu; Esc goes back to the pause list
+      if (code === 'Escape' || code === 'KeyP') return g.closeSettings(), true
+      if (code === 'ArrowUp' || code === 'KeyW') return g.moveOptions(-1), true
+      if (code === 'ArrowDown' || code === 'KeyS') return g.moveOptions(1), true
+      if (go) return g.chooseOptions(), true
+      return false
+    }
     if (g.pauseControls) return code === 'Escape' || code === 'KeyP' || go ? (g.closeControls(), true) : false // the layout of the keys: back to the list
     if (code === 'Escape' || code === 'KeyP') return g.resume(), true
     if (code === 'ArrowUp' || code === 'KeyW') return g.movePause(-1), true

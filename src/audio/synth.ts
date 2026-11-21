@@ -8,8 +8,10 @@ let out: AudioNode | null = null
 let ctx: AudioContext | null = null
 let noise: AudioBuffer | null = null
 
-function audio(): AudioContext | null {
-  if (useSettings.getState().muted) return null
+/** The audio context (made on first use): for the sound effects it is null when they are switched off (or everything is muted); for the music, only when everything is muted. */
+function context(forMusic: boolean): AudioContext | null {
+  const { muted, effectsOff } = useSettings.getState()
+  if (muted || (!forMusic && effectsOff)) return null
   try {
     ctx ??= new AudioContext()
     if (ctx.state === 'suspended') void ctx.resume()
@@ -136,7 +138,7 @@ const SOUNDS: Record<Sound, (c: AudioContext) => void> = {
 
 /** The audio context (made on first use), or null when the sound is muted or there is no Web Audio: for the music, which plays through it. */
 export function audioContext(): AudioContext | null {
-  return audio()
+  return context(true)
 }
 
 export interface PlayOptions {
@@ -147,7 +149,7 @@ export interface PlayOptions {
 }
 
 export function play(sound: Sound, options?: PlayOptions): void {
-  const c = audio()
+  const c = context(false)
   if (!c) return
   if (options && (options.gain !== undefined || options.pan !== undefined)) {
     const g = c.createGain()

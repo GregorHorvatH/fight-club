@@ -3,7 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { LANGUAGES } from '../i18n'
 import { arenaUrl, NO_ARENA, pickArena, useArenas } from '../state/arenas'
 import { TOUCH } from '../state/touch'
-import { END_ITEMS, PAUSE_ITEMS, SETUP_ITEMS, useGame } from '../state/game'
+import { END_ITEMS, OPTION_SWITCHES, PAUSE_ITEMS, SETUP_ITEMS, useGame } from '../state/game'
 import { MENU, MENU_INFO, useMenu } from '../state/menu'
 import { difficultyAt } from '../state/tournament'
 import { usePortrait } from './usePortrait'
@@ -151,14 +151,41 @@ export function Menu() {
   )
 }
 
-/** The options: for now the language. A list like the menus (arrows and Enter, or the pointer); a language takes effect at once. */
-export function Options() {
+/** The options: the sound effects and the music (switches), and the language. A list like the menus (arrows and Enter, or the pointer); a language takes effect at once. */
+function OptionsScreen() {
   const { t } = useTranslation()
   const { optionsCursor, pointOptions, chooseOptions } = useGame()
   const current = useSettings((s) => s.language)
+  const effectsOff = useSettings((s) => s.effectsOff)
+  const musicOff = useSettings((s) => s.musicOff)
+  const row = (i: number) => ({
+    onMouseEnter: () => pointOptions(i),
+    onFocus: () => pointOptions(i),
+    onClick: () => chooseOptions(i),
+  })
+  const switches = [
+    { label: t('options.effects'), off: effectsOff },
+    { label: t('options.music'), off: musicOff },
+  ]
+  // a long list: the item the cursor is on is kept in view as it moves (the screen scrolls when the window is short)
+  const screen = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    screen.current?.querySelector('.item.on')?.scrollIntoView?.({ block: 'nearest' })
+  }, [optionsCursor])
   return (
-    <div className="screen menu" role="dialog" aria-label={t('options.title')}>
+    <div ref={screen} className="screen menu dense" role="dialog" aria-label={t('options.title')}>
       <h1>{t('options.title')}</h1>
+      <h2>{t('options.sound')}</h2>
+      <ul role="menu" className="items">
+        {switches.map((sw, i) => (
+          <li key={i} role="none">
+            <button role="menuitemcheckbox" aria-checked={!sw.off} className={`item${optionsCursor === i ? ' on' : ''}`} {...row(i)}>
+              {sw.label}
+              <small>{sw.off ? t('options.off') : t('options.on')}</small>
+            </button>
+          </li>
+        ))}
+      </ul>
       <h2>{t('options.language')}</h2>
       <ul role="menu" className="items">
         {LANGUAGES.map((l, i) => (
@@ -166,11 +193,9 @@ export function Options() {
             <button
               role="menuitemradio"
               aria-checked={current === l.id}
-              className={`item${optionsCursor === i ? ' on' : ''}${current === l.id ? ' current' : ''}`}
-              onMouseEnter={() => pointOptions(i)}
-              onFocus={() => pointOptions(i)}
-              onClick={() => chooseOptions(i)}
+              className={`item${optionsCursor === OPTION_SWITCHES + i ? ' on' : ''}${current === l.id ? ' current' : ''}`}
               lang={l.id}
+              {...row(OPTION_SWITCHES + i)}
             >
               {l.name}
               {current === l.id && <small>✓</small>}
@@ -178,13 +203,7 @@ export function Options() {
           </li>
         ))}
         <li role="none">
-          <button
-            role="menuitem"
-            className={`item${optionsCursor === LANGUAGES.length ? ' on' : ''}`}
-            onMouseEnter={() => pointOptions(LANGUAGES.length)}
-            onFocus={() => pointOptions(LANGUAGES.length)}
-            onClick={() => chooseOptions(LANGUAGES.length)}
-          >
+          <button role="menuitem" className={`item${optionsCursor === OPTION_SWITCHES + LANGUAGES.length ? ' on' : ''}`} {...row(OPTION_SWITCHES + LANGUAGES.length)}>
             {t('common.back')}
           </button>
         </li>
@@ -195,6 +214,10 @@ export function Options() {
       </p>
     </div>
   )
+}
+
+export function Options() {
+  return <OptionsScreen />
 }
 
 /** What the game is and how it is played. */
@@ -446,7 +469,15 @@ export function Setup() {
 /** The pause window: over the fight, which cannot be touched meanwhile. A list like the main menu (arrows and Enter, or the pointer). */
 export function Pause() {
   const { t } = useTranslation()
-  const { pauseItem, pointPause, choosePause, pauseControls, closeControls, mode } = useGame()
+  const { pauseItem, pointPause, choosePause, pauseControls, closeControls, pauseSettings, mode } = useGame()
+  if (pauseSettings) {
+    return (
+      <>
+        <div className="scrim" aria-hidden="true" />
+        <OptionsScreen />
+      </>
+    )
+  }
   if (pauseControls) {
     return (
       <>
@@ -493,7 +524,7 @@ export function Pause() {
                 onClick={() => choosePause(item)}
                 autoFocus={item === 'continue'}
               >
-                {t(`pause.${item}`)}
+                {item === 'settings' ? t('menu.options.label') : t(`pause.${item}`)}
               </button>
             </li>
           ))}

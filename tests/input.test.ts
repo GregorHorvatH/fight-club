@@ -376,6 +376,8 @@ describe('the pause', () => {
     press('ArrowDown')
     expect(useGame.getState().pauseItem).toBe('again')
     press('ArrowDown')
+    expect(useGame.getState().pauseItem).toBe('settings')
+    press('ArrowDown')
     expect(useGame.getState().pauseItem).toBe('controls')
     press('ArrowDown')
     expect(useGame.getState().pauseItem).toBe('menu')
@@ -383,7 +385,7 @@ describe('the pause', () => {
     expect(useGame.getState().pauseItem).toBe('continue')
     press('ArrowUp')
     expect(useGame.getState().pauseItem).toBe('menu')
-    press('ArrowUp', 'ArrowUp', 'ArrowUp', 'Enter') // back on Continue
+    press('ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'Enter') // back on Continue
     expect(useGame.getState().paused).toBe(false)
     expect(useGame.getState().phase).toBe('choose')
   })
@@ -400,7 +402,7 @@ describe('the pause', () => {
   })
 
   it('Controls shows the layout of the keys; Esc (or Enter) goes back to the list, and the fight is still paused', () => {
-    press('Escape', 'ArrowDown', 'ArrowDown', 'Enter')
+    press('Escape', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'Enter')
     expect(useGame.getState().pauseControls).toBe(true)
     expect(useGame.getState().paused).toBe(true)
     press('KeyE') // nothing else does anything meanwhile
@@ -413,6 +415,31 @@ describe('the pause', () => {
     expect(useGame.getState().pauseControls).toBe(false)
     press('Escape') // continues
     expect(useGame.getState().paused).toBe(false)
+  })
+
+  it('Settings (the options) open over the paused fight: the switches and the language work, Esc goes back to the list', () => {
+    useSettings.setState({ effectsOff: false, musicOff: false })
+    press('Escape', 'ArrowDown', 'ArrowDown', 'Enter')
+    const g = () => useGame.getState()
+    expect(g().pauseSettings).toBe(true)
+    expect(g().paused).toBe(true)
+    press('KeyE') // nothing else does anything meanwhile
+    expect(g().choice.player.attack).toBeNull()
+    expect(g().optionsCursor).toBe(2) // on the language that is on (English), below the two switches
+    press('ArrowUp', 'ArrowUp', 'Enter') // the sound effects
+    expect(useSettings.getState().effectsOff).toBe(true)
+    press('ArrowDown', 'Enter') // the music
+    expect(useSettings.getState().musicOff).toBe(true)
+    expect(g().pauseSettings).toBe(true)
+    press('Escape')
+    expect(g().pauseSettings).toBe(false)
+    expect(g().paused).toBe(true)
+    expect(g().pauseItem).toBe('settings')
+    press('Enter', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'Enter') // opens again, and Back (the top wraps round to it) leaves the settings, not the fight
+    expect(g().pauseSettings).toBe(false)
+    expect(g().paused).toBe(true)
+    expect(g().phase).toBe('choose')
+    useSettings.setState({ effectsOff: false, musicOff: false })
   })
 
   it('Fight again, while choosing, clears the picks and goes on choosing', () => {
@@ -949,24 +976,51 @@ describe('going back to the main menu from a fight', () => {
 })
 
 
-describe('the options: the language', () => {
+describe('the options: the sound and the language', () => {
   const LANGUAGES = ['en', 'de', 'fr', 'es', 'uk', 'pt', 'pl', 'it', 'hu']
+  const SWITCHES = 2 // the sound effects, the music: the languages come after them
   beforeEach(() => {
+    useSettings.setState({ muted: false, effectsOff: false, musicOff: false })
     useSettings.getState().setLanguage('en')
     useGame.getState().toMenu()
     useMenu.setState({ cursor: 'options', soon: null })
     handleKey('Enter')
   })
-  afterAll(() => useSettings.getState().setLanguage('en'))
+  afterAll(() => {
+    useSettings.setState({ muted: false, effectsOff: false, musicOff: false })
+    useSettings.getState().setLanguage('en')
+  })
 
-  it('is a list of the languages and Back; the cursor starts on the current language', () => {
+  it('is the two switches, the languages and Back; the cursor starts on the current language', () => {
     expect(useGame.getState().phase).toBe('options')
-    expect(useGame.getState().optionsCursor).toBe(0)
+    expect(useGame.getState().optionsCursor).toBe(SWITCHES)
     handleKey('ArrowDown')
-    expect(useGame.getState().optionsCursor).toBe(1)
+    expect(useGame.getState().optionsCursor).toBe(SWITCHES + 1)
+    handleKey('ArrowUp')
+    handleKey('ArrowUp') // the switches are above the languages
+    expect(useGame.getState().optionsCursor).toBe(SWITCHES - 1)
     handleKey('ArrowUp')
     handleKey('ArrowUp') // wraps around: Back is the last
-    expect(useGame.getState().optionsCursor).toBe(LANGUAGES.length)
+    expect(useGame.getState().optionsCursor).toBe(SWITCHES + LANGUAGES.length)
+  })
+
+  it('the sound effects and the music are switched on and off apart from each other, and remembered', () => {
+    handleKey('ArrowUp')
+    handleKey('ArrowUp') // the effects
+    expect(useGame.getState().optionsCursor).toBe(0)
+    handleKey('Enter')
+    expect(useSettings.getState().effectsOff).toBe(true)
+    expect(useSettings.getState().musicOff).toBe(false)
+    handleKey('ArrowDown') // the music
+    handleKey('Enter')
+    expect(useSettings.getState().musicOff).toBe(true)
+    handleKey('Enter')
+    expect(useSettings.getState().musicOff).toBe(false)
+    handleKey('ArrowUp')
+    handleKey('Enter')
+    expect(useSettings.getState().effectsOff).toBe(false)
+    expect(useGame.getState().phase).toBe('options') // it stays on the screen
+    expect(useSettings.getState().muted).toBe(false) // (the M key is a switch of its own: everything)
   })
 
   it('Enter on a language changes the language at once, and it is remembered in the settings', () => {
@@ -988,9 +1042,11 @@ describe('the options: the language', () => {
     expect(useGame.getState().phase).toBe('menu')
     useMenu.setState({ cursor: 'options', soon: null })
     handleKey('Enter')
-    expect(useGame.getState().optionsCursor).toBe(1)
+    expect(useGame.getState().optionsCursor).toBe(SWITCHES + 1)
     handleKey('ArrowUp')
-    handleKey('ArrowUp') // Back
+    handleKey('ArrowUp')
+    handleKey('ArrowUp')
+    handleKey('ArrowUp') // Back (the top wraps round to it)
     handleKey('Enter')
     expect(useGame.getState().phase).toBe('menu')
   })
@@ -1059,7 +1115,7 @@ describe('P pauses (Esc leaves the full screen of a browser)', () => {
   })
 
   it('P closes the layout of the keys (going back to the list) and then continues', () => {
-    press('KeyP', 'ArrowDown', 'ArrowDown', 'Enter')
+    press('KeyP', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'Enter')
     expect(useGame.getState().pauseControls).toBe(true)
     press('KeyP')
     expect(useGame.getState().pauseControls).toBe(false)

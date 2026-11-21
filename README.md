@@ -63,7 +63,7 @@ Your record against the enemy (wins, losses, fastest win, most health left), the
 are remembered in the browser.
 
 Built on the same stack as deorbit: TypeScript, Vite, React, React Three Fiber, zustand, vitest, oxlint, pnpm.
-Every sound is synthesised with Web Audio (no files). The menus have a theme of their own (`src/audio/music.ts`: A minor, 108 bpm, sixteen bars of drums, bass, arpeggio, pad and a lead), played live while no fight is going on; it fades out when a fight begins and `M` mutes it. `node scripts/render-menu-theme.mjs out.wav` renders it to a file.
+Every sound is synthesised with Web Audio (no files). The menus have a theme of their own (`src/audio/music.ts`: A minor, 108 bpm, sixteen bars of drums, bass, arpeggio, pad and a lead), played live while no fight is going on; it fades out when a fight begins. `M` (or the speaker button) mutes everything; in Options the sound effects of the fight and the music are switched on and off apart from each other, and remembered. `node scripts/render-menu-theme.mjs out.wav` renders it to a file.
 
 ## Characters (3D, optional)
 

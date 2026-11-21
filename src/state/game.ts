@@ -15,9 +15,12 @@ import { useSettings, type Mode } from './settings'
 export type Phase = 'menu' | 'about' | 'options' | 'setup' | 'select' | 'ladder' | 'leave' | 'choose' | 'reveal' | 'over'
 
 /** The items of the pause window, top to bottom: go on, the round again (from its start), or leave the fight for the main menu. */
-const ALL_PAUSE_ITEMS = ['continue', 'again', 'controls', 'menu'] as const
+const ALL_PAUSE_ITEMS = ['continue', 'again', 'settings', 'controls', 'menu'] as const
 export type PauseItem = (typeof ALL_PAUSE_ITEMS)[number]
 /** The items of the pause window: on a phone without the one that shows the keys (there is no keyboard). */
+/** The switches at the top of the options (the sound effects, the music): the languages come after them. */
+export const OPTION_SWITCHES = 2
+
 export const PAUSE_ITEMS: readonly PauseItem[] = TOUCH ? ALL_PAUSE_ITEMS.filter((i) => i !== 'controls') : ALL_PAUSE_ITEMS
 
 /** The items under the settings of the setup screen, top to bottom. */
@@ -96,6 +99,9 @@ interface Game {
   /** the pause window shows the layout of the keys instead of its list */
   pauseControls: boolean
   closeControls: () => void
+  /** the settings (the options: the sound and the language) are open over the paused fight */
+  pauseSettings: boolean
+  closeSettings: () => void
   /** move the cursor of the pause window by `step` items (wraps around) */
   movePause: (step: number) => void
   pointPause: (item: PauseItem) => void
@@ -146,11 +152,11 @@ interface Game {
   chooseEnd: (item?: EndItem) => void
   /** from the menu to the options (the language) */
   openOptions: () => void
-  /** the item of the options the cursor is on: a language, or (the last) Back */
+  /** the item of the options the cursor is on: the sound effects, the music, a language, or (the last) Back */
   optionsCursor: number
   moveOptions: (step: number) => void
   pointOptions: (i: number) => void
-  /** choose the item under the cursor (or `i`): a language takes effect at once; Back leaves */
+  /** choose the item under the cursor (or `i`): a switch flips, a language takes effect at once; Back leaves */
   chooseOptions: (i?: number) => void
   /** from the menu to the description of the game */
   openAbout: () => void
@@ -215,6 +221,8 @@ export const setRandomSource = (r: Rng): void => {
 }
 
 export const useGame = create<Game>((set, get) => {
+  /** the options are on the screen: from the main menu, or over a paused fight */
+  const optionsOpen = (): boolean => get().phase === 'options' || (get().paused && get().pauseSettings)
   /** a player can still change their mind during the choosing phase, unless they have locked in */
   const editable = (side: Side): boolean => {
     const { phase, choice, mode } = get()
@@ -248,7 +256,7 @@ export const useGame = create<Game>((set, get) => {
       const { phase, paused } = get()
       if (paused || (phase !== 'choose' && phase !== 'reveal')) return
       stopSounds() // the sounds of the replay that are still to come
-      set({ paused: true, pauseItem: 'continue', pauseControls: false, hover: null })
+      set({ paused: true, pauseItem: 'continue', pauseControls: false, pauseSettings: false, hover: null })
     },
 
     resume: () => {
@@ -263,6 +271,8 @@ export const useGame = create<Game>((set, get) => {
     pauseItem: 'continue',
     pauseControls: false,
     closeControls: () => set({ pauseControls: false }),
+    pauseSettings: false,
+    closeSettings: () => set({ pauseSettings: false }),
 
     movePause: (step) => {
       if (!get().paused) return
@@ -280,6 +290,7 @@ export const useGame = create<Game>((set, get) => {
       play('select')
       if (item === 'continue') get().resume()
       else if (item === 'again') get().restartRound()
+      else if (item === 'settings') set({ pauseSettings: true, optionsCursor: OPTION_SWITCHES + Math.max(0, LANGUAGES.findIndex((l) => l.id === useSettings.getState().language)) })
       else if (item === 'controls') set({ pauseControls: true })
       else get().toMenu()
     },
@@ -438,21 +449,24 @@ export const useGame = create<Game>((set, get) => {
     },
 
     optionsCursor: 0,
-    openOptions: () => set({ phase: 'options', optionsCursor: Math.max(0, LANGUAGES.findIndex((l) => l.id === useSettings.getState().language)) }),
+    openOptions: () => set({ phase: 'options', optionsCursor: OPTION_SWITCHES + Math.max(0, LANGUAGES.findIndex((l) => l.id === useSettings.getState().language)) }),
     moveOptions: (step) => {
-      if (get().phase !== 'options') return
-      const n = LANGUAGES.length + 1 // the languages, then Back
+      if (!optionsOpen()) return
+      const n = OPTION_SWITCHES + LANGUAGES.length + 1 // the switches, the languages, then Back
       play('select')
       set({ optionsCursor: (get().optionsCursor + step + n) % n })
     },
     pointOptions: (i) => {
-      if (get().phase === 'options' && get().optionsCursor !== i) set({ optionsCursor: i })
+      if (optionsOpen() && get().optionsCursor !== i) set({ optionsCursor: i })
     },
     chooseOptions: (i = get().optionsCursor) => {
-      if (get().phase !== 'options') return
-      if (i >= LANGUAGES.length) return get().toMenu()
-      play('select')
-      useSettings.getState().setLanguage(LANGUAGES[i]!.id)
+      if (!optionsOpen()) return
+      const settings = useSettings.getState()
+      if (i === 0) settings.toggleEffects()
+      else if (i === 1) settings.toggleMusic()
+      else if (i >= OPTION_SWITCHES + LANGUAGES.length) return get().phase === 'options' ? get().toMenu() : get().closeSettings()
+      else settings.setLanguage(LANGUAGES[i - OPTION_SWITCHES]!.id)
+      play('select') // (heard when the effects are on: after switching them on, or while they were on)
       set({ optionsCursor: i })
     },
 
