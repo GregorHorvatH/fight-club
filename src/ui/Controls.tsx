@@ -106,8 +106,8 @@ export function Sides() {
         <WeaponButtons key={turn} side={turn} />
       </div>
       <div className="side right">
-        <SuperButton key={turn} side={turn} />
-        <GoButton key={turn} side={turn} />
+        <SuperButton key={`super-${turn}`} side={turn} />
+        <GoButton key={`go-${turn}`} side={turn} />
       </div>
     </div>
   )

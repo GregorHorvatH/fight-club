@@ -369,3 +369,45 @@ kbd {
 .rung.beaten { opacity: .45; }
 .rung.now { border-color: var(--gold); background: #ffc85222; transform: scale(1.04); box-shadow: 0 0 18px #ffc85555; }
 .rung.next { opacity: .85; }
+
+/* ---- short windows (the game embedded in a page, such as itch.io: about 640 x 360): the panels are made smaller so that they fit ---- */
+@media (max-height: 560px) {
+  .screen { padding: 12px 18px 10px; max-height: calc(100% - 12px); }
+  .screen h1 { margin: 0 0 6px; font-size: 1.6rem; }
+  .screen h2 { margin: 6px 0 4px; font-size: .9rem; }
+  .screen p { margin: 0 0 6px; }
+  .menu h1 { margin-bottom: 8px; }
+  .items { gap: 3px; margin: 0 0 4px; }
+  .item { padding: 6px 14px; font-size: 1rem; }
+  .blurb, .keys, .record { margin-top: 4px !important; font-size: .74rem; }
+  .choose-row { margin-top: 4px; gap: 6px; }
+  .choose-row button { padding: 5px 12px; }
+  .choose-row + .items, .end .items { margin-top: 8px; }
+  .arena-row { margin-top: 6px; }
+  .arena-opt { width: 70px; }
+  .roster { gap: 5px; max-width: 330px; }
+  .tile .letter, .tile .qm { font-size: 1.4rem; }
+  .pick-name { margin: 6px 0 0 !important; font-size: 1.05rem; min-height: 1.3em; }
+  .rungs { gap: 4px; }
+  .rung { padding: 3px 8px; gap: 8px; grid-template-columns: 1.4em 34px 1fr auto 1.2em; }
+  .rung .face { width: 34px; height: 34px; }
+  .who { margin-bottom: 4px !important; }
+  .screen .go.big { padding-top: 9px; padding-bottom: 9px; margin-top: 8px; }
+}
+@media (max-height: 400px) {
+  .screen { padding: 8px 14px 6px; }
+  .screen h1 { font-size: 1.25rem; margin-bottom: 4px; }
+  .item { padding: 4px 12px; font-size: .88rem; }
+  .items { gap: 2px; }
+  .screen .keys { display: none; } /* the hints of the keys: no room (the buttons are there to tap) */
+  .blurb { font-size: .7rem; }
+  .arena-opt { width: 56px; font-size: .62rem; }
+  .roster { max-width: 250px; gap: 4px; }
+  .pick-name { font-size: .9rem; margin-top: 3px !important; }
+  .rung { padding: 1px 8px; grid-template-columns: 1.4em 28px 1fr auto 1.2em; }
+  .rungs { gap: 2px; }
+  .ladder h1 { margin-bottom: 0; }
+  .rung .face { width: 28px; height: 28px; }
+  .rung .nm { font-size: .8rem; }
+  .menu .blurbs .blurb { font-size: .68rem; }
+}
