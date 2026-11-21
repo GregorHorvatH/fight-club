@@ -45,6 +45,7 @@ export const it = {
     rule4: '<b>Colpo super</b> (✦): colpisce due zone insieme, quindi una parata ne copre solo una, ed è il colpo più lento di tutti. La barra si riempie quando colpisci o pari, e un poco quando vieni colpito.',
     controlsTitle: 'Comandi',
     controls: 'Tocca <b>il tuo combattente</b> (a sinistra) per proteggere una zona e <b>il nemico</b> (a destra) per colpirne una (in due: te stesso per proteggere, l’altro combattente per colpire), scegli ✊ o 🦶, poi premi ▶. Sulla tastiera i nove tasti sono disposti come lo schermo. In modalità VS il secondo giocatore usa i tasti di destra, dopo che il primo ha confermato.',
+    controlsTouch: 'Tocca <b>il tuo combattente</b> (a sinistra) per proteggere una zona e <b>il nemico</b> (a destra) per colpirne una (in due: te stesso per proteggere, l’altro combattente per colpire), scegli ✊ o 🦶, poi premi ▶.',
   },
   keymap: {
     title: 'Comandi',

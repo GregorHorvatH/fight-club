@@ -45,6 +45,7 @@ export const pl = {
     rule4: '<b>Super cios</b> (✦): uderza w dwie strefy naraz, więc obrona osłania tylko jedną z nich, i jest to najwolniejszy cios ze wszystkich. Jego miernik napełnia się, gdy trafiasz lub blokujesz, i trochę, gdy oberwiesz.',
     controlsTitle: 'Sterowanie',
     controls: 'Dotknij <b>swojego wojownika</b> (po lewej), aby osłonić strefę, i <b>przeciwnika</b> (po prawej), aby w jakąś uderzyć (we dwoje: siebie do obrony, drugiego wojownika do ataku), wybierz ✊ lub 🦶, a potem naciśnij ▶. Na klawiaturze dziewięć klawiszy jest ułożonych jak ekran. W trybie VS drugi gracz używa klawiszy po prawej, gdy pierwszy zatwierdzi.',
+    controlsTouch: 'Dotknij <b>swojego wojownika</b> (po lewej), aby osłonić strefę, i <b>przeciwnika</b> (po prawej), aby w jakąś uderzyć (we dwoje: siebie do obrony, drugiego wojownika do ataku), wybierz ✊ lub 🦶, a potem naciśnij ▶.',
   },
   keymap: {
     title: 'Sterowanie',

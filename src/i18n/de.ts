@@ -45,6 +45,7 @@ export const de = {
     rule4: '<b>Superangriff</b> (✦): trifft zwei Zonen gleichzeitig, sodass eine Deckung nur eine davon schützt, und er ist der langsamste Angriff von allen. Seine Leiste füllt sich, wenn du triffst oder eine Deckung hältst, und ein wenig, wenn du getroffen wirst.',
     controlsTitle: 'Steuerung',
     controls: 'Tippe auf <b>deinen Kämpfer</b> (links), um eine Zone zu decken, und auf <b>den Gegner</b> (rechts), um eine anzugreifen (zu zweit: auf dich selbst zum Decken, auf den anderen Kämpfer zum Angreifen), wähle ✊ oder 🦶 und drücke dann ▶. Auf der Tastatur sind die neun Tasten wie der Bildschirm angeordnet. Im VS-Modus nutzt der zweite Spieler die Tasten rechts, nachdem der erste bestätigt hat.',
+    controlsTouch: 'Tippe auf <b>deinen Kämpfer</b> (links), um eine Zone zu decken, und auf <b>den Gegner</b> (rechts), um eine anzugreifen (zu zweit: auf dich selbst zum Decken, auf den anderen Kämpfer zum Angreifen), wähle ✊ oder 🦶 und drücke dann ▶.',
   },
   keymap: {
     title: 'Steuerung',

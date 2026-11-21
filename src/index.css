@@ -444,3 +444,8 @@ kbd {
 /* and in the main menu itself the controls at the top (the title, 2D/3D, the sound) are put away too */
 .hud .center { transition: opacity .4s ease, visibility 0s; }
 .hud.in-menu .center { opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility 0s .3s; }
+
+/* a phone or a tablet (a finger, no keyboard): the names of the keys and the lines of hints about them are not shown */
+@media (hover: none) and (pointer: coarse) {
+  kbd, .screen kbd, .keys { display: none !important; }
+}

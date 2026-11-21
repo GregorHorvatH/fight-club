@@ -52,6 +52,7 @@ export const en = {
     rule4: '<b>Super strike</b> (✦): hits two zones at once, so a guard covers only one of them, and it is the slowest strike of all. Its meter fills when you land a blow or hold a guard, and a little when you are hurt.',
     controlsTitle: 'Controls',
     controls: 'Tap <b>your fighter</b> (on the left) to guard a zone and <b>the enemy</b> (on the right) to strike one (between two people: yourself to guard, the other fighter to strike), choose ✊ or 🦶, then press ▶. On a keyboard the nine keys are laid out like the screen. In VS Mode the second player uses the right-hand keys, after the first has locked in.',
+    controlsTouch: 'Tap <b>your fighter</b> (on the left) to guard a zone and <b>the enemy</b> (on the right) to strike one (between two people: yourself to guard, the other fighter to strike), choose ✊ or 🦶, then press ▶.',
   },
   keymap: {
     title: 'Controls',

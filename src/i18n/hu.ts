@@ -45,6 +45,7 @@ export const hu = {
     rule4: '<b>Szuper ütés</b> (✦): egyszerre két zónát talál el, így egy védés csak az egyiket fedi, és ez a leglassabb ütés mind közül. A mérője akkor töltődik, ha találsz vagy véded magad, és egy kicsit akkor is, ha megsebeznek.',
     controlsTitle: 'Irányítás',
     controls: 'Érintsd meg <b>a saját harcosodat</b> (balra) egy zóna védéséhez, és <b>az ellenfelet</b> (jobbra) egy zóna ütéséhez (ketten: magadat a védéshez, a másik harcost az ütéshez), válaszd az ✊ vagy a 🦶 lehetőséget, majd nyomd meg a ▶ gombot. Billentyűzeten a kilenc gomb úgy van elrendezve, mint a képernyő. VS módban a második játékos a jobb oldali billentyűket használja, miután az első megerősített.',
+    controlsTouch: 'Érintsd meg <b>a saját harcosodat</b> (balra) egy zóna védéséhez, és <b>az ellenfelet</b> (jobbra) egy zóna ütéséhez (ketten: magadat a védéshez, a másik harcost az ütéshez), válaszd az ✊ vagy a 🦶 lehetőséget, majd nyomd meg a ▶ gombot.',
   },
   keymap: {
     title: 'Irányítás',

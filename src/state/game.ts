@@ -7,6 +7,7 @@ import { difficultyAt, ladderFor, type Tournament } from './tournament'
 import { useUnlocks } from './unlocks'
 import { fighterOf, isUnlocked, rivalOf, slotFighter, SLOTS, FIGHTERS, type FighterId } from './roster'
 import { LANGUAGES } from '../i18n'
+import { TOUCH } from './touch'
 import { warmModel } from './modelFiles'
 import { useSettings, type Mode } from './settings'
 
@@ -14,8 +15,10 @@ import { useSettings, type Mode } from './settings'
 export type Phase = 'menu' | 'about' | 'options' | 'setup' | 'select' | 'ladder' | 'leave' | 'choose' | 'reveal' | 'over'
 
 /** The items of the pause window, top to bottom: go on, the round again (from its start), or leave the fight for the main menu. */
-export const PAUSE_ITEMS = ['continue', 'again', 'controls', 'menu'] as const
-export type PauseItem = (typeof PAUSE_ITEMS)[number]
+const ALL_PAUSE_ITEMS = ['continue', 'again', 'controls', 'menu'] as const
+export type PauseItem = (typeof ALL_PAUSE_ITEMS)[number]
+/** The items of the pause window: on a phone without the one that shows the keys (there is no keyboard). */
+export const PAUSE_ITEMS: readonly PauseItem[] = TOUCH ? ALL_PAUSE_ITEMS.filter((i) => i !== 'controls') : ALL_PAUSE_ITEMS
 
 /** The items under the settings of the setup screen, top to bottom. */
 export const SETUP_ITEMS = ['select', 'back'] as const

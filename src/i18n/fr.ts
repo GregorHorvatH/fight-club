@@ -45,6 +45,7 @@ export const fr = {
     rule4: '<b>Super coup</b> (✦) : frappe deux zones à la fois, donc une garde n’en couvre qu’une, et c’est le coup le plus lent de tous. Sa jauge se remplit quand vous touchez ou parez, et un peu quand vous êtes blessé.',
     controlsTitle: 'Commandes',
     controls: 'Touchez <b>votre combattant</b> (à gauche) pour protéger une zone et <b>l’ennemi</b> (à droite) pour en frapper une (à deux : soi-même pour protéger, l’autre combattant pour frapper), choisissez ✊ ou 🦶, puis appuyez sur ▶. Au clavier, les neuf touches sont disposées comme l’écran. En mode VS, le deuxième joueur utilise les touches de droite, une fois que le premier a validé.',
+    controlsTouch: 'Touchez <b>votre combattant</b> (à gauche) pour protéger une zone et <b>l’ennemi</b> (à droite) pour en frapper une (à deux : soi-même pour protéger, l’autre combattant pour frapper), choisissez ✊ ou 🦶, puis appuyez sur ▶.',
   },
   keymap: {
     title: 'Commandes',

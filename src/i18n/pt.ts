@@ -45,6 +45,7 @@ export const pt = {
     rule4: '<b>Golpe super</b> (✦): atinge duas zonas ao mesmo tempo, então uma defesa cobre só uma delas, e é o golpe mais lento de todos. A barra enche quando você acerta ou defende, e um pouco quando você é atingido.',
     controlsTitle: 'Controles',
     controls: 'Toque <b>no seu lutador</b> (à esquerda) para defender uma zona e <b>no inimigo</b> (à direita) para atacar uma (entre duas pessoas: em si mesmo para defender, no outro lutador para atacar), escolha ✊ ou 🦶 e depois pressione ▶. No teclado, as nove teclas estão dispostas como a tela. No modo VS, o segundo jogador usa as teclas da direita, depois que o primeiro confirmar.',
+    controlsTouch: 'Toque <b>no seu lutador</b> (à esquerda) para defender uma zona e <b>no inimigo</b> (à direita) para atacar uma (entre duas pessoas: em si mesmo para defender, no outro lutador para atacar), escolha ✊ ou 🦶 e depois pressione ▶.',
   },
   keymap: {
     title: 'Controles',

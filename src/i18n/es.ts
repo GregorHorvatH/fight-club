@@ -45,6 +45,7 @@ export const es = {
     rule4: '<b>Golpe súper</b> (✦): golpea dos zonas a la vez, así que una defensa solo cubre una, y es el golpe más lento de todos. Su medidor se llena cuando aciertas o proteges bien, y un poco cuando te hieren.',
     controlsTitle: 'Controles',
     controls: 'Toca <b>a tu luchador</b> (a la izquierda) para proteger una zona y <b>al enemigo</b> (a la derecha) para golpear una (entre dos personas: a ti mismo para proteger, al otro luchador para golpear), elige ✊ o 🦶 y pulsa ▶. En el teclado, las nueve teclas están dispuestas como la pantalla. En el modo VS, el segundo jugador usa las teclas de la derecha, cuando el primero ha confirmado.',
+    controlsTouch: 'Toca <b>a tu luchador</b> (a la izquierda) para proteger una zona y <b>al enemigo</b> (a la derecha) para golpear una (entre dos personas: a ti mismo para proteger, al otro luchador para golpear), elige ✊ o 🦶 y pulsa ▶.',
   },
   keymap: {
     title: 'Controles',

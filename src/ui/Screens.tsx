@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { LANGUAGES } from '../i18n'
 import { arenaUrl, NO_ARENA, pickArena, useArenas } from '../state/arenas'
+import { TOUCH } from '../state/touch'
 import { END_ITEMS, PAUSE_ITEMS, SETUP_ITEMS, useGame } from '../state/game'
 import { MENU, MENU_INFO, useMenu } from '../state/menu'
 import { difficultyAt } from '../state/tournament'
@@ -220,15 +221,19 @@ export function About() {
 
       <h2>{t('about.controlsTitle')}</h2>
       <p>
-        <Trans i18nKey="about.controls" components={b} />
+        <Trans i18nKey={TOUCH ? 'about.controlsTouch' : 'about.controls'} components={b} />
       </p>
-      <div className="keymap" aria-label="Keys">
-        <KeyGrid side="player" label={t('keymap.player1')} />
-        <KeyGrid side="enemy" label={t('keymap.player2vs')} />
-      </div>
-      <p className="keys">
-        <Trans i18nKey="keymap.footer" components={{ kbd: <kbd /> }} />
-      </p>
+      {!TOUCH && (
+        <>
+          <div className="keymap" aria-label="Keys">
+            <KeyGrid side="player" label={t('keymap.player1')} />
+            <KeyGrid side="enemy" label={t('keymap.player2vs')} />
+          </div>
+          <p className="keys">
+            <Trans i18nKey="keymap.footer" components={{ kbd: <kbd /> }} />
+          </p>
+        </>
+      )}
       <ul role="menu" className="items">
         <li role="none">
           <button role="menuitem" className="item on" onClick={toMenu}>
