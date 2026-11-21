@@ -10,6 +10,8 @@ import { Captions } from './Caption'
 import { Intro } from './Intro'
 import { useFloor } from './floor'
 import { usePortrait } from './usePortrait'
+import { Ambient } from './Ambient'
+import { useCalm } from './useCalm'
 
 // three.js is ~250 kB gzipped: it is only downloaded when the 3D view is first opened
 const Arena3D = lazy(() => import('./Arena3D'))
@@ -27,15 +29,19 @@ export function Arena() {
   const key = `${round}-${phase}-${replay}`
   const settled = phase === 'over'
   const { ref, floor } = useFloor(usePortrait())
+  // the picture, under a dark veil so that the fighters, the numbers and the glow stay readable on a bright photo
+  const picture = arena ? `linear-gradient(rgba(10, 9, 16, 0.18), rgba(10, 9, 16, 0.42)), url(${arenaUrl(arena.file)})` : undefined
+  // while no fight is going on the picture is alive (Ambient)
+  const calm = useCalm()
   return (
     <div
       ref={ref}
       className={`arena ${view === '3d' ? 'three' : 'flat'}${arena ? ' has-bg' : ''}`}
       aria-label={t('arena.aria')}
-      // the picture, under a dark veil so that the fighters, the numbers and the glow stay readable on a bright photo
       // `--stand`: how far down the frame the fighters are moved (the labels over their heads follow)
-      style={{ ...(floor !== null ? { '--floor': `${floor}px` } : {}), ...(arena ? { '--stand': arena.stand, backgroundImage: `linear-gradient(rgba(10, 9, 16, 0.18), rgba(10, 9, 16, 0.42)), url(${arenaUrl(arena.file)})` } : {}) } as CSSProperties}
+      style={{ ...(floor !== null ? { '--floor': `${floor}px` } : {}), ...(arena ? { '--stand': arena.stand, backgroundImage: picture } : {}) } as CSSProperties}
     >
+      {arena && picture && <Ambient arena={arena.id} image={picture} on={calm} />}
       {view === '3d' ? (
         <>
           <Suspense fallback={<div className="loading">{t('common.loading3d')}</div>}>

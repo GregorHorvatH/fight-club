@@ -1,3 +1,4 @@
+import { stepSounds } from './footsteps'
 import { useTranslation } from 'react-i18next'
 import { useLayoutEffect, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import type { Zone } from '../sim'
@@ -107,13 +108,15 @@ function Figure({ side, view, settled }: FigureProps) {
     let raf = 0
     const frame = (now: number) => {
       start.current ??= now - lastT.current * 1000
+      const before = lastT.current
       lastT.current = (now - start.current) / 1000
+      stepSounds(side, before, lastT.current, view.entrance)
       draw(lastT.current, now / 1000)
       raf = requestAnimationFrame(frame)
     }
     raf = requestAnimationFrame(frame)
     return () => cancelAnimationFrame(raf)
-  }, [view, phase])
+  }, [view, phase, side])
 
   const state = (z: Zone): string => {
     const i = view.incoming

@@ -1,3 +1,4 @@
+import { stepSounds } from './footsteps'
 import { useFrame, useLoader } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Color, MeshStandardMaterial, Quaternion, Vector3, type MeshBasicMaterial, type Object3D, type SkinnedMesh } from 'three'
@@ -214,8 +215,10 @@ export function ModelFighter3D({ side, view, settled, stage }: Props) {
   }, [view, bd, foeBuild])
 
   useFrame((state, dt) => {
+    const before = time.current
     if (!stage) time.current += Math.min(dt, 0.05)
     const t = stage ? stage.t : time.current
+    if (!stage) stepSounds(side, before, t, view.entrance)
     const J = joints.current
     const { rig, fx, k } = model
     const P = computePose(t, input(), stage ? (stage.clock ?? 0) : state.clock.elapsedTime, phase)

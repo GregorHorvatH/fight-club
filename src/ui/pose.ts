@@ -194,9 +194,9 @@ export interface PoseInput {
 type Key = readonly [time: number, value: number]
 
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v))
-const clamp01 = (v: number): number => clamp(v, 0, 1)
+export const clamp01 = (v: number): number => clamp(v, 0, 1)
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t
-const smooth = (u: number): number => u * u * (3 - 2 * u)
+export const smooth = (u: number): number => u * u * (3 - 2 * u)
 
 /** A value that moves smoothly through keyframes [time, value]; before the first it holds the first, after the last the last. */
 export function track(t: number, keys: readonly Key[]): number {
@@ -227,9 +227,9 @@ const JOY_ARMS: readonly Key[] = [[0, 0.1], [0.08, 0], [JOY_TAKEOFF, 1], [0.5, 1
 /** The entrance: how long the walk in takes, how far outside its place the fighter starts (beyond the frame, whatever the window), and the stride. */
 export const ENTER_S = 2.4
 export const EXIT_S = 2.2
-const TURN_S = 0.5 // turning round before it walks out
+export const TURN_S = 0.5 // turning round before it walks out
 const ENTER_DIST = 6.6
-const STEPS_PER_S = 2.5
+export const STEPS_PER_S = 2.5 // strides a second: each stride is two steps, one for each foot
 
 /**
  * Idle fidgets. While a fighter waits for the player to choose, it does a little something now and then, at random moments (but the

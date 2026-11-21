@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { setMusic } from './audio/music'
 import { bindKeys } from './input'
 import { loadArenas } from './state/arenas'
 import { timelineOf } from './timing'
@@ -6,6 +7,7 @@ import { useGame } from './state/game'
 import { Arena } from './ui/Arena'
 import { Dock } from './ui/Controls'
 import { Hud } from './ui/Hud'
+import { useCalm } from './ui/useCalm'
 import { About, End, Options, Ladder, Menu, Pause, Select, Setup } from './ui/Screens'
 
 /** A round is shown for as long as its strikes take (two beats, or one when the first knocked the other out); Enter skips it. A knockout lingers a little longer. */
@@ -21,6 +23,9 @@ export default function App() {
 
   useEffect(bindKeys, [])
   useEffect(() => void loadArenas(), [])
+  // the theme of the menus plays while no fight is going on
+  const alive = useCalm()
+  useEffect(() => setMusic(alive), [alive])
 
   useEffect(() => {
     if (phase !== 'reveal' || !last || paused) return

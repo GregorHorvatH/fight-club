@@ -1,8 +1,10 @@
 /** Every sound is synthesised with the Web Audio API: there are no audio files. */
 import { useSettings } from '../state/settings'
 
-export type Sound = 'select' | 'bell' | 'hit' | 'kick' | 'whoosh' | 'crit' | 'super' | 'block' | 'stumble' | 'win' | 'lose'
+export type Sound = 'select' | 'bell' | 'hit' | 'kick' | 'whoosh' | 'crit' | 'super' | 'block' | 'stumble' | 'step' | 'win' | 'lose'
 
+/** Where the sound being played goes: the speakers, or (for a sound that has a volume and a place) a gain and a stereo panner on the way. */
+let out: AudioNode | null = null
 let ctx: AudioContext | null = null
 let noise: AudioBuffer | null = null
 
@@ -36,7 +38,7 @@ function tone(c: AudioContext, type: OscillatorType, f0: number, f1: number, dur
   o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t + dur)
   g.gain.setValueAtTime(gain, t)
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
-  o.connect(g).connect(c.destination)
+  o.connect(g).connect(out ?? c.destination)
   o.start(t)
   o.stop(t + dur + 0.02)
 }
@@ -52,7 +54,7 @@ function burst(c: AudioContext, freq: number, dur: number, gain: number, at = 0)
   f.frequency.value = freq
   g.gain.setValueAtTime(gain, t)
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
-  s.connect(f).connect(g).connect(c.destination)
+  s.connect(f).connect(g).connect(out ?? c.destination)
   s.start(t)
   s.stop(t + dur + 0.02)
 }
@@ -71,7 +73,7 @@ function whoosh(c: AudioContext, f0: number, f1: number, dur: number, gain: numb
   g.gain.setValueAtTime(0.0001, t)
   g.gain.exponentialRampToValueAtTime(gain, t + dur * 0.55)
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
-  s.connect(f).connect(g).connect(c.destination)
+  s.connect(f).connect(g).connect(out ?? c.destination)
   s.start(t)
   s.stop(t + dur + 0.02)
 }
@@ -109,19 +111,60 @@ const SOUNDS: Record<Sound, (c: AudioContext) => void> = {
     tone(c, 'sawtooth', 1200, 140, 0.35, 0.16, 0.02)
     tone(c, 'triangle', 880, 440, 0.5, 0.12, 0.05)
   },
+  // a guarded blow: the arm (or the leg) takes it. Drier and shorter than a hit: the flat slap of the glove, the dull thump of
+  // the muscle under it, and a small knock from the bone; nothing rings, nothing is metallic
   block: (c) => {
-    tone(c, 'triangle', 1400, 900, 0.1, 0.25)
-    tone(c, 'square', 2100, 1500, 0.06, 0.06)
+    const v = 0.93 + Math.random() * 0.14
+    burst(c, 2200 * v, 0.045, 0.3)
+    burst(c, 520 * v, 0.1, 0.36, 0.004)
+    tone(c, 'sine', 210 * v, 105, 0.12, 0.4, 0.004)
+    tone(c, 'triangle', 380 * v, 190, 0.05, 0.08, 0.008)
   },
   stumble: (c) => {
     burst(c, 600, 0.16, 0.3)
     tone(c, 'sawtooth', 260, 70, 0.28, 0.16)
   },
+  // a footstep on the sand: a soft, short thud of the heel and a bit of scuff (a little different every time)
+  step: (c) => {
+    const v = 0.85 + Math.random() * 0.3
+    burst(c, 700 * v, 0.06, 0.3)
+    tone(c, 'sine', 120 * v, 55, 0.1, 0.38)
+  },
   win: (c) => [523, 659, 784, 1047].forEach((f, i) => tone(c, 'triangle', f, f, 0.28, 0.2, i * 0.13)),
   lose: (c) => [392, 330, 262, 175].forEach((f, i) => tone(c, 'sawtooth', f, f * 0.97, 0.38, 0.14, i * 0.2)),
 }
 
-export function play(sound: Sound): void {
+/** The audio context (made on first use), or null when the sound is muted or there is no Web Audio: for the music, which plays through it. */
+export function audioContext(): AudioContext | null {
+  return audio()
+}
+
+export interface PlayOptions {
+  /** how loud, 0..1 (default 1) */
+  gain?: number
+  /** where: -1 (left) .. 1 (right) */
+  pan?: number
+}
+
+export function play(sound: Sound, options?: PlayOptions): void {
   const c = audio()
-  if (c) SOUNDS[sound](c)
+  if (!c) return
+  if (options && (options.gain !== undefined || options.pan !== undefined)) {
+    const g = c.createGain()
+    g.gain.value = options.gain ?? 1
+    let end: AudioNode = g
+    if (options.pan !== undefined && typeof c.createStereoPanner === 'function') {
+      const p = c.createStereoPanner()
+      p.pan.value = options.pan
+      g.connect(p)
+      end = p
+    }
+    end.connect(c.destination)
+    out = g
+  }
+  try {
+    SOUNDS[sound](c)
+  } finally {
+    out = null
+  }
 }

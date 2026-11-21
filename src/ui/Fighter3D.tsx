@@ -1,3 +1,4 @@
+import { stepSounds } from './footsteps'
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef, type ReactNode } from 'react'
 import { AdditiveBlending, BackSide, Color, MeshStandardMaterial, type MeshBasicMaterial, type Object3D } from 'three'
@@ -56,8 +57,10 @@ export function Fighter3D({ side, view, settled }: Props) {
   }, [view])
 
   useFrame((state, dt) => {
+    const before = time.current
     time.current += Math.min(dt, 0.05)
     const t = time.current
+    stepSounds(side, before, t, view.entrance)
     const J = joints.current
     const P = computePose(t, poseInput(view), state.clock.elapsedTime, phase)
 

@@ -49,7 +49,7 @@ export function Hud() {
   const toggleMute = useSettings((s) => s.toggleMute)
   const toggleView = useSettings((s) => s.toggleView)
   return (
-    <header className="hud">
+    <header className={`hud${inFight ? '' : ' idle'}${phase === 'menu' ? ' in-menu' : ''}`}>
       <Bar side="player" />
       <div className="center">
         <div className="round">{!inFight ? 'FIGHT CLUB' : t('hud.round', { n: phase === 'choose' ? round + 1 : round })}</div>

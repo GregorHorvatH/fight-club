@@ -100,8 +100,10 @@ function GoButton({ side }: { side: Side }) {
  */
 export function Sides() {
   const turn = useGame((s) => turnOf(s.choice, s.mode))
+  // in the menus (and while the fighters walk out) there is no fight to choose a strike for: the buttons are not shown
+  const idle = useGame((s) => s.phase !== 'choose' && s.phase !== 'reveal' && s.phase !== 'over')
   return (
-    <div className="sides">
+    <div className={`sides${idle ? ' idle' : ''}`}>
       <div className="side left">
         <WeaponButtons key={turn} side={turn} />
       </div>

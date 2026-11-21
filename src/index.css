@@ -417,3 +417,30 @@ kbd {
 .canvas-wrap > .model-notice { width: auto; height: auto; }
 .model-notice.failed { pointer-events: auto; cursor: pointer; border-radius: 12px; border-color: #ff5a5f; line-height: 1.3; }
 @keyframes model-notice-in { from { opacity: 0; } }
+
+/* ---- the life behind the menus (Ambient.tsx): the picture creeps closer, mist rolls, light sweeps, little lights float ---- */
+.ambient { position: absolute; inset: 0; overflow: hidden; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .9s ease, visibility 0s .9s; }
+.ambient.on { opacity: 1; visibility: visible; transition: opacity .9s ease; }
+.amb-pic { scale: calc(1 + var(--kick, 0) * .028); position: absolute; inset: 0; background-size: cover; background-position: center bottom; background-repeat: no-repeat; transform-origin: 50% 80%; animation: amb-drift 38s ease-in-out infinite alternate; }
+@keyframes amb-drift { from { transform: scale(1.03) translate(0, 0); } to { transform: scale(1.13) translate(-1.6%, -1.2%); } }
+.amb-shaft { position: absolute; top: -10%; bottom: 25%; left: -30%; width: 55%; background: linear-gradient(104deg, transparent 20%, rgba(var(--amb), .24) 45%, rgba(var(--amb), .09) 60%, transparent 80%); animation: amb-sweep 22s ease-in-out infinite alternate; }
+@keyframes amb-sweep { from { transform: translateX(0); opacity: .2; } 50% { opacity: 1; } to { transform: translateX(210%); opacity: .3; } }
+.amb-mist { transform-origin: 50% 100%; scale: 1 calc(1 + var(--kick, 0) * .4); opacity: calc(.78 + var(--kick, 0) * .35); position: absolute; left: -30%; right: -30%; bottom: -6%; height: 36%; background: radial-gradient(ellipse 50% 60% at 50% 100%, rgba(var(--amb), .36), transparent 72%); animation: amb-roll 26s ease-in-out infinite alternate; }
+.amb-mist.b { height: 26%; opacity: .75; background: radial-gradient(ellipse 45% 55% at 50% 100%, rgba(var(--amb), .28), transparent 70%); animation-duration: 38s; animation-direction: alternate-reverse; }
+@keyframes amb-roll { from { transform: translateX(-9%); } to { transform: translateX(9%); } }
+.amb-mote { position: absolute; width: var(--size); height: var(--size); animation: amb-float var(--dur) ease-in-out var(--delay) infinite; }
+.amb-mote i { scale: calc(1 + var(--kick, 0) * .9 + var(--snare, 0) * .4); display: block; width: 100%; height: 100%; border-radius: 50%; background: rgba(var(--amb), 1); box-shadow: 0 0 calc(var(--size) * 2.6) rgba(var(--amb), .85); }
+@keyframes amb-float { 0% { transform: translate(0, 0); opacity: 0; } 15% { opacity: var(--peak); } 85% { opacity: var(--peak); } 100% { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+.ambient.firefly .amb-mote i { animation: amb-blink var(--blink) ease-in-out infinite alternate; box-shadow: 0 0 calc(var(--size) * 4) rgba(var(--amb), .9); }
+@keyframes amb-blink { from { opacity: .12; } to { opacity: 1; } }
+.ambient.ember .amb-mote i { border-radius: 50% 50% 50% 0; box-shadow: 0 0 calc(var(--size) * 3) rgba(var(--amb), .85); }
+/* the sound's own wave along the bottom (drawn by Ambient.tsx) */
+.amb-wave { position: absolute; left: 0; bottom: 0; width: 100%; height: 30%; opacity: .9; }
+@media (prefers-reduced-motion: reduce) { .ambient { display: none; } }
+
+/* in the menus there is no fight: the health bars and the buttons of the fight are put away (the title, the 2D/3D and the sound stay) */
+.hud .bar, .sides .side { transition: opacity .4s ease, visibility 0s; }
+.hud.idle .bar, .sides.idle .side { opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility 0s .3s; }
+/* and in the main menu itself the controls at the top (the title, 2D/3D, the sound) are put away too */
+.hud .center { transition: opacity .4s ease, visibility 0s; }
+.hud.in-menu .center { opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility 0s .3s; }
